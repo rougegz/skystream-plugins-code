@@ -9,7 +9,6 @@
     STREAM_TIMEOUT_MS: 12e3,
     SUB_TIMEOUT_MS: 2e4,
     SEARCH_TIMEOUT_MS: 1e4,
-    HARD_CEILING_MS: 6e4,
     GUARD_BUDGET_MS: 75e3,
     STREAM_CACHE_TTL: 6e5,
     MANIFEST_CACHE_TTL: 18e5,
@@ -1014,16 +1013,6 @@
       return s;
     });
   }
-  function isEnglishSub(s) {
-    var l = safeStr(s.lang).toLowerCase(),
-      lb = safeStr(s.label).toLowerCase();
-    return (
-      l === "en" ||
-      l.indexOf("en-") === 0 ||
-      l.indexOf("eng") === 0 ||
-      lb.indexOf("english") !== -1
-    );
-  }
   async function fetchSubs(addons, ref) {
     var targets = addons.filter(function (a) {
       return a.hasSubs;
@@ -1634,17 +1623,19 @@
         : [];
     var finalStreams = dedupeAndSort(streams);
     if (settings.englishSubs && subs.length) attachSubs(finalStreams, subs);
-    console.log(
-      "[StremioHub] " +
-        ref.id +
-        ": " +
-        finalStreams.length +
-        " streams from " +
-        targets.length +
-        " addons in " +
-        (Date.now() - started) +
-        "ms",
-    );
+    try {
+      console.log(
+        "[StremioHub] " +
+          ref.id +
+          ": " +
+          finalStreams.length +
+          " streams from " +
+          targets.length +
+          " addons in " +
+          (Date.now() - started) +
+          "ms",
+      );
+    } catch (e) {}
     cacheSet(ck, finalStreams, CFG.STREAM_CACHE_TTL);
     return {
       success: true,
