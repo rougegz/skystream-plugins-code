@@ -6,7 +6,6 @@
     MANIFEST_TIMEOUT_MS: 15e3,
     CATALOG_TIMEOUT_MS: 15e3,
     META_TIMEOUT_MS: 2e4,
-    STREAM_TIMEOUT_MS: 12e3,
     SUB_TIMEOUT_MS: 2e4,
     SEARCH_TIMEOUT_MS: 1e4,
     GUARD_BUDGET_MS: 75e3,
@@ -284,31 +283,41 @@
   }
   async function _httpJsonOnce(url, timeoutMs, depth) {
     depth = depth || 0;
-    var done = false;
-    var resp = await new Promise(function (resolve) {
-      var t = setTimeout(function () {
-        if (!done) {
-          done = true;
-          resolve(null);
-        }
-      }, timeoutMs);
-      http_get(url, JSON_HEADERS).then(
-        function (r) {
+    var resp;
+    if (timeoutMs > 0) {
+      var done = false;
+      resp = await new Promise(function (resolve) {
+        var t = setTimeout(function () {
           if (!done) {
             done = true;
-            clearTimeout(t);
-            resolve(r);
-          }
-        },
-        function () {
-          if (!done) {
-            done = true;
-            clearTimeout(t);
             resolve(null);
           }
-        },
-      );
-    });
+        }, timeoutMs);
+        http_get(url, JSON_HEADERS).then(
+          function (r) {
+            if (!done) {
+              done = true;
+              clearTimeout(t);
+              resolve(r);
+            }
+          },
+          function () {
+            if (!done) {
+              done = true;
+              clearTimeout(t);
+              resolve(null);
+            }
+          },
+        );
+      });
+    } else {
+      // No timeout: wait indefinitely for the host request itself.
+      try {
+        resp = await http_get(url, JSON_HEADERS);
+      } catch (e) {
+        resp = null;
+      }
+    }
     var s = safeInt(resp && (resp.status || resp.statusCode || resp.code), 0);
     if (
       resp &&
@@ -1599,17 +1608,17 @@
           a.base + "/stream/" + t + "/" + encodeURIComponent(ref.id) + ".json",
           a.queryStr,
         );
-        return fetchJson(reqUrl, CFG.STREAM_TIMEOUT_MS, 1, true).then(
-          function (data) {
-            var list = data && Array.isArray(data.streams) ? data.streams : [];
-            var out = [];
-            list.forEach(function (s) {
-              var f = formatStream(s, a);
-              if (f) out.push(f);
-            });
-            return out;
-          },
-        );
+        // No timeout: wait as long as the addon takes (75s global watchdog
+        // in guarded() still protects the app overall).
+        return fetchJson(reqUrl, 0, 1, true).then(function (data) {
+          var list = data && Array.isArray(data.streams) ? data.streams : [];
+          var out = [];
+          list.forEach(function (s) {
+            var f = formatStream(s, a);
+            if (f) out.push(f);
+          });
+          return out;
+        });
       });
       return settle(fetches).then(function (rs) {
         var acc = [];
