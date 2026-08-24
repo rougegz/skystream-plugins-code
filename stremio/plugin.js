@@ -282,7 +282,8 @@
     p.then(fin, fin);
     return p;
   }
-  async function _httpJsonOnce(url, timeoutMs) {
+  async function _httpJsonOnce(url, timeoutMs, depth) {
+    depth = depth || 0;
     var done = false;
     var resp = await new Promise(function (resolve) {
       var t = setTimeout(function () {
@@ -308,8 +309,28 @@
         },
       );
     });
+    var s = safeInt(resp && (resp.status || resp.statusCode || resp.code), 0);
+    // Follow redirects ourselves: some host HTTP stacks return the 30x as-is.
+    if (
+      resp &&
+      (s === 301 || s === 302 || s === 303 || s === 307 || s === 308) &&
+      depth < 3
+    ) {
+      var loc = "";
+      try {
+        var h = resp.headers || {};
+        var hk = Object.keys(h);
+        for (var hi = 0; hi < hk.length; hi++)
+          if (hk[hi].toLowerCase() === "location") loc = safeStr(h[hk[hi]]);
+      } catch (e) {}
+      if (loc && !/^https?:/i.test(loc) && loc.charAt(0) === "/") {
+        var om = safeStr(url).match(/^(https?:\/\/[^/]+)/);
+        if (om) loc = om[1] + loc;
+      }
+      if (/^https?:/i.test(loc))
+        return _httpJsonOnce(loc, timeoutMs, depth + 1);
+    }
     if (!resp || !resp.body) return null;
-    var s = safeInt(resp.status || resp.statusCode || resp.code, 0);
     if (s !== 200 && s !== 206 && s !== 304) return null;
     var b = typeof resp.body === "string" ? resp.body.trim() : "";
     if (!b || b.charAt(0) === "<") return null;
@@ -953,6 +974,7 @@
         s.subtitles.forEach(function (x) {
           if (x && isHttpStr(x.url))
             inlineSubs.push({
+              id: x.url,
               url: x.url,
               label: safeStr(x.lang || x.label || "Subtitle"),
               lang: safeStr(x.lang || "en"),
@@ -1049,6 +1071,7 @@
         seen[k] = 1;
         var lbl = safeStr(sub.lang || sub.label || "Subtitle");
         subs.push({
+          id: sub.url,
           url: sub.url,
           label: lbl,
           lang: safeStr(sub.lang || "en"),
@@ -1072,6 +1095,7 @@
         if (seen[k]) continue;
         seen[k] = 1;
         fresh.push({
+          id: merged[i].url,
           url: merged[i].url,
           label: safeStr(merged[i].label) || "English",
           lang: safeStr(merged[i].lang) || "en",
