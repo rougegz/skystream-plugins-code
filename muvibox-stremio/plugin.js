@@ -223,48 +223,20 @@
     return Promise.resolve(null);
   }
   async function getSettingsData() {
-    var keys = [
-      "fire_window",
-      "external_subs",
-      "english_subs",
-      "force_exoplayer",
-    ];
+    var keys = ["external_subs", "english_subs", "force_exoplayer"];
     var vals = await settle(keys.map(readPrefRaw));
     function val(k, d) {
       var i = keys.indexOf(k);
       var v = i >= 0 && vals[i] && vals[i].ok ? vals[i].value : null;
       return v === null || v === undefined || v === "" ? d : safeStr(v);
     }
-    var fw = val("fire_window", "");
-    if (fw === "") {
-      // Preference missing/unreadable: honor the manifest defaultValue
-      // instead of silently falling back to instant (0).
-      var dflt = "45000";
-      try {
-        var _ms = typeof manifest !== "undefined" ? manifest : null;
-        if (_ms && Array.isArray(_ms.settings))
-          _ms.settings.forEach(function (s) {
-            if (s && s.key === "fire_window" && s.defaultValue != null)
-              dflt = safeStr(s.defaultValue);
-          });
-      } catch (e) {}
-      fw = dflt;
-    }
-    var fireWindowMs = safeInt(fw, 0);
-    if (fireWindowMs > 0 && fireWindowMs <= 120) fireWindowMs *= 1000; // seconds form ("45")
-    if (fireWindowMs !== 0) {
-      if (fireWindowMs < 5e3) fireWindowMs = 5e3;
-      if (fireWindowMs > 6e4) fireWindowMs = 6e4;
-    }
     var extRaw = val("external_subs", "");
     if (extRaw === "") extRaw = val("english_subs", "true");
-    var data = {
-      fireWindowMs: fireWindowMs,
+    return {
       englishSubs: safeStr(extRaw).toLowerCase() !== "false",
       forceExo:
         safeStr(val("force_exoplayer", "false")).toLowerCase() === "true",
     };
-    return data;
   }
   function getSettings() {
     try {
@@ -277,32 +249,6 @@
         return manifest.settings;
     } catch (e) {}
     return [
-      {
-        key: "fire_window",
-        title: "Fire Window",
-        description: "Off = instant, 30s/45s/60s = fire exactly at that time",
-        type: "select",
-        defaultValue: "0",
-        reloadOnChange: true,
-        options: [
-          {
-            label: "Off (instant)",
-            value: "0",
-          },
-          {
-            label: "30 seconds",
-            value: "30000",
-          },
-          {
-            label: "45 seconds",
-            value: "45000",
-          },
-          {
-            label: "60 seconds",
-            value: "60000",
-          },
-        ],
-      },
       {
         key: "external_subs",
         title: "Enable External Subs",
@@ -1632,10 +1578,6 @@
       });
       return uniq;
     }
-    var jobBudget =
-      settings.fireWindowMs === 0
-        ? CFG.STREAM_TIMEOUT_MS
-        : Math.min(settings.fireWindowMs, CFG.HARD_CEILING_MS);
     var orderCounter = 0;
     var jobs = targets.map(function (a) {
       a._order = orderCounter++;
@@ -1665,7 +1607,7 @@
           });
           return acc;
         }),
-        jobBudget,
+        CFG.STREAM_TIMEOUT_MS,
         function () {
           return [];
         },
@@ -1692,10 +1634,6 @@
         : [];
     var finalStreams = dedupeAndSort(streams);
     if (settings.englishSubs && subs.length) attachSubs(finalStreams, subs);
-    if (settings.fireWindowMs !== 0) {
-      var remain = settings.fireWindowMs - (Date.now() - started);
-      if (remain > 0 && remain < CFG.GUARD_BUDGET_MS) await delay(remain);
-    }
     console.log(
       "[StremioHub] " +
         ref.id +

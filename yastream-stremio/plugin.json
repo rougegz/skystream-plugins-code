@@ -29,32 +29,6 @@
 	],
 	"settings": [
 		{
-			"key": "fire_window",
-			"title": "Fire Window",
-			"description": "Off = instant, 30s/45s/60s = fire exactly at that time",
-			"type": "select",
-			"defaultValue": "0",
-			"reloadOnChange": true,
-			"options": [
-				{
-					"label": "Off (instant)",
-					"value": "0"
-				},
-				{
-					"label": "30 seconds",
-					"value": "30000"
-				},
-				{
-					"label": "45 seconds",
-					"value": "45000"
-				},
-				{
-					"label": "60 seconds",
-					"value": "60000"
-				}
-			]
-		},
-		{
 			"key": "external_subs",
 			"title": "Enable External Subs",
 			"description": "Fetch all external subtitles (all languages)",
