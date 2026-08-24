@@ -1,0 +1,92 @@
+name: Build & Deploy
+
+# Source: rougegz/skystream-plugins-code -> Dist: rougegz/SkystreamPlugins
+# Users install via: https://raw.githubusercontent.com/rougegz/SkystreamPlugins/main/repo.json
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dist
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install SkyStream CLI
+        run: npm install -g skystream-cli@latest
+
+      - name: Build Plugins
+        run: |
+          skystream deploy -u "https://raw.githubusercontent.com/rougegz/SkystreamPlugins/main"
+          echo "## Deployed plugins" >> "$GITHUB_STEP_SUMMARY"
+          ls dist/*.sky | xargs -n1 basename >> "$GITHUB_STEP_SUMMARY"
+
+      # .sky zips embed build timestamps, so a full rebuild changes EVERY file's
+      # bytes even when plugin code is identical. Compare zip CONTENTS against
+      # the currently deployed dist and keep the old bytes when identical, so
+      # only genuinely-changed plugins are committed.
+      - name: Checkout current dist (change detection)
+        uses: actions/checkout@v4
+        with:
+          repository: rougegz/SkystreamPlugins
+          ref: main
+          path: current-dist
+          token: ${{ secrets.REPO_PUSH_TOKEN }}
+
+      - name: Keep unchanged .sky files from previous deploy
+        run: |
+          python3 - <<'EOF'
+          import zipfile, pathlib, hashlib, shutil
+          def inner_hash(p):
+              p = pathlib.Path(p)
+              if not p.exists():
+                  return None
+              try:
+                  z = zipfile.ZipFile(p)
+                  h = hashlib.sha256()
+                  for n in sorted(z.namelist()):
+                      h.update(n.encode())
+                      h.update(z.read(n))
+                  return h.hexdigest()
+              except Exception:
+                  return None
+          kept = changed = 0
+          for new in sorted(pathlib.Path("dist").glob("*.sky")):
+              old = pathlib.Path("current-dist/dist") / new.name
+              if inner_hash(new) == inner_hash(old):
+                  shutil.copyfile(old, new)
+                  kept += 1
+              else:
+                  changed += 1
+          print(f"unchanged: {kept}, changed: {changed}")
+          EOF
+
+      - name: Prepare Deploy Directory
+        run: |
+          mkdir -p deploy
+          cp -r dist repo.json deploy/
+          cp README.md deploy/README.md 2>/dev/null || true
+
+      - name: Push .sky to SkystreamPlugins (main branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.REPO_PUSH_TOKEN }}
+          external_repository: rougegz/SkystreamPlugins
+          publish_branch: main
+          publish_dir: ./deploy
+          force_orphan: false
+          user_name: "rougegz"
+          user_email: "rougegz@users.noreply.github.com"
+          commit_message: "Deploy from ${{ github.sha }} [skip ci]"

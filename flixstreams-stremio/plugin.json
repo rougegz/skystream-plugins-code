@@ -1,0 +1,68 @@
+{
+	"packageName": "dev.cookie.flixstreams",
+	"name": "Flix Streams Free",
+	"version": 1,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "HDHub, HDHub4u, Dailymotion plus live TV and sports events.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"Hindi",
+		"English"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "fire_window",
+			"title": "Fire Window",
+			"description": "Off = instant, 30s/45s/60s = fire exactly at that time",
+			"type": "select",
+			"defaultValue": "0",
+			"reloadOnChange": true,
+			"options": [
+				{
+					"label": "Off (instant)",
+					"value": "0"
+				},
+				{
+					"label": "30 seconds",
+					"value": "30000"
+				},
+				{
+					"label": "45 seconds",
+					"value": "45000"
+				},
+				{
+					"label": "60 seconds",
+					"value": "60000"
+				}
+			]
+		},
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Fetch all external subtitles (all languages)",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live). Fixes mpv crashes and dropped links on TV.",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [
+		"https://free.flixnest.app/eNqNUltuGzEMvIu-I2C9XiuGr1IEhCxxs6z1ikSt0xa9e7V-JI7rAv2SNEMOqSF_CcBSMDBpB45mBJzbq4B2Lh7BusIZtS8QkI8xH8SOc8UnAWNGhGIm9FrsRN_1qlN9L8_ZciTHmGWKZTnmtXgSn1JGM77GTFjE7tsnLkuKmSVjCFTkkfzeoY1Bmkn7RDGUiVKRSyW5NHoreUnVnGSh8OrwNv_I-gG6xNpY9ye0RVzvnt7Rfrz-UchkMgfkM_3y5W-TDgEdnA1YPviFpmBctQjaVsdiN2pXmpkYdKsGw2GyU91fLb6gVpP74SM3B-6Zq-wd_nCg_xNzM25LGQ3fJZ3aG-oH-kADTgadBnsxafGHQuG2UEC27cpIoN7USqnubc1D3STVbfzwrPZqGrbddrNdPfdp873ZfiPL5BHGmL1uTYlVP_1N_4wBG5dynMliBheNdi0sZfRU_blJnsGvK5RYs7nbP_Hy-w8AayGC/manifest.json"
+	],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}

@@ -1,0 +1,10 @@
+{
+	"packageName": "dev.cookie.dailymotion",
+	"name": "Dailymotion",
+	"version": 1,
+	"baseUrl": "https://www.dailymotion.com",
+	"description": "Dailymotion videos: trending, channels, search and up-next from the same channel.",
+	"authors": ["Cookie🍪"],
+	"languages": ["English", "Multilingual"],
+	"categories": ["Movies", "Series"]
+}

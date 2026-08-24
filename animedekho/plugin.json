@@ -1,0 +1,20 @@
+{
+	"packageName": "dev.cookie.animedekho",
+	"name": "AnimeDekho",
+	"version": 1,
+	"baseUrl": "https://animedekho.app",
+	"description": "Anime in Hindi, Tamil and Telugu dubs from animedekho.app.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"Hindi",
+		"English",
+		"Tamil",
+		"Telugu"
+	],
+	"categories": [
+		"Anime",
+		"Series"
+	]
+}

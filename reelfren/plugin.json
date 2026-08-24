@@ -1,0 +1,121 @@
+{
+	"packageName": "dev.cookie.reelfren",
+	"name": "ReelFren",
+	"version": 1,
+	"baseUrl": "https://api.dramafren.org",
+	"providers": [
+		{
+			"id": "wetv",
+			"name": "WeTV"
+		},
+		{
+			"id": "vibeshort",
+			"name": "VibeShort"
+		},
+		{
+			"id": "storyreel",
+			"name": "StoryReel"
+		},
+		{
+			"id": "minitv",
+			"name": "MiniTV"
+		},
+		{
+			"id": "moviebox",
+			"name": "MovieBox"
+		},
+		{
+			"id": "shorten",
+			"name": "Shorten"
+		},
+		{
+			"id": "sereal",
+			"name": "Sereal"
+		},
+		{
+			"id": "kalostv",
+			"name": "KaloTV"
+		},
+		{
+			"id": "cubetv",
+			"name": "CubeTV"
+		},
+		{
+			"id": "joyreels",
+			"name": "JoyReels"
+		},
+		{
+			"id": "movieboxshorts",
+			"name": "MovieBox Shorts"
+		},
+		{
+			"id": "golddrama",
+			"name": "GoldDrama"
+		},
+		{
+			"id": "anyreel",
+			"name": "AnyReel"
+		},
+		{
+			"id": "dramanova",
+			"name": "DramaNova"
+		},
+		{
+			"id": "happyshort",
+			"name": "HappyShort"
+		},
+		{
+			"id": "melolo",
+			"name": "Melolo"
+		},
+		{
+			"id": "reelife",
+			"name": "Reelife"
+		},
+		{
+			"id": "pinedrama",
+			"name": "PineDrama"
+		},
+		{
+			"id": "bstation",
+			"name": "BStation"
+		},
+		{
+			"id": "raptdrama",
+			"name": "RaptDrama"
+		},
+		{
+			"id": "freereels",
+			"name": "FreeReels"
+		},
+		{
+			"id": "vigloo",
+			"name": "Vigloo"
+		}
+	],
+	"description": "Short dramas from multiple providers via the ReelFren API.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English",
+		"Hindi",
+		"Spanish",
+		"Portuguese",
+		"Arabic",
+		"Vietnamese",
+		"Thai",
+		"Korean",
+		"Japanese",
+		"Indonesian",
+		"Filipino",
+		"Chinese",
+		"Malay",
+		"French",
+		"German"
+	],
+	"categories": [
+		"Series",
+		"Movies"
+	]
+}

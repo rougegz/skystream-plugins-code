@@ -1,0 +1,57 @@
+{
+	"packageName": "dev.cookie.archive",
+	"name": "Archive Vault",
+	"version": 2,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "Public domain anime, films and classic TV from archive.org.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "fire_window",
+			"title": "Fire Window",
+			"description": "Off = instant (recommended). Timed values hold the batch.",
+			"type": "select",
+			"defaultValue": "0",
+			"reloadOnChange": true,
+			"options": [
+				{
+					"label": "Off (instant)",
+					"value": "0"
+				},
+				{
+					"label": "15 seconds",
+					"value": "15000"
+				},
+				{
+					"label": "30 seconds",
+					"value": "30000"
+				}
+			]
+		},
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Attach subtitle files found inside archive items.",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live).",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	]
+}

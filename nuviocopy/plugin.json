@@ -1,0 +1,20 @@
+{
+	"packageName": "dev.cookie.sandbox",
+	"name": "SandBox🏜️",
+	"version": 1,
+	"baseUrl": "nuviocopy.com",
+	"description": "TMDB-powered catalog sandbox.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English",
+		"Hindi",
+		"Tamil",
+		"Telugu"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	]
+}

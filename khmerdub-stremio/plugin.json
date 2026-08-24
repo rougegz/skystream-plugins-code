@@ -1,0 +1,66 @@
+{
+	"packageName": "dev.cookie.khmerdub",
+	"name": "KhmerDub 🇰🇭",
+	"version": 1,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "Asian dramas dubbed in Khmer.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"Khmer"
+	],
+	"categories": [
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "fire_window",
+			"title": "Fire Window",
+			"description": "Off = instant, 30s/45s/60s = fire exactly at that time",
+			"type": "select",
+			"defaultValue": "0",
+			"reloadOnChange": true,
+			"options": [
+				{
+					"label": "Off (instant)",
+					"value": "0"
+				},
+				{
+					"label": "30 seconds",
+					"value": "30000"
+				},
+				{
+					"label": "45 seconds",
+					"value": "45000"
+				},
+				{
+					"label": "60 seconds",
+					"value": "60000"
+				}
+			]
+		},
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Fetch all external subtitles (all languages)",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live). Fixes mpv crashes and dropped links on TV.",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [
+		"https://khmerhub.onrender.com/khmerdub/manifest.json"
+	],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}

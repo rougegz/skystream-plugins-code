@@ -1,0 +1,68 @@
+{
+	"packageName": "dev.cookie.nagare",
+	"name": "Nexio Nagare",
+	"version": 1,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "English anime direct streams, no debrid needed.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English",
+		"Japanese"
+	],
+	"categories": [
+		"Anime",
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "fire_window",
+			"title": "Fire Window",
+			"description": "Off = instant, 30s/45s/60s = fire exactly at that time",
+			"type": "select",
+			"defaultValue": "0",
+			"reloadOnChange": true,
+			"options": [
+				{
+					"label": "Off (instant)",
+					"value": "0"
+				},
+				{
+					"label": "30 seconds",
+					"value": "30000"
+				},
+				{
+					"label": "45 seconds",
+					"value": "45000"
+				},
+				{
+					"label": "60 seconds",
+					"value": "60000"
+				}
+			]
+		},
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Fetch all external subtitles (all languages)",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live). Fixes mpv crashes and dropped links on TV.",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [
+		"https://nagare.nexioapp.org/%7B%22NexioNagare%22%3A%22eyJ1c2VFbmdsaXNoVGl0bGVzIjp0cnVlLCJwcmVmZXJEdWIiOnRydWUsInByb3ZpZGVycyI6WyJvbmV0d290aHJlZWFuaW1lIiwiYW5pem9uZSIsImFuaW1lbm9zdWIiLCJhbmltZXBhaGUiLCJnb2pvIl0sInJlc29sdXRpb25zIjpbIjRLIiwiMTA4MHAiLCI3MjBwIiwiNDgwcCIsImF1dG8iXSwic2hvd1NlYXNvbmFsU2VyaWVzIjp0cnVlLCJzaG93QWlyaW5nU2VyaWVzIjp0cnVlLCJzaG93VHJlbmRpbmdTZXJpZXMiOnRydWUsInNob3dUb3BTZXJpZXMiOnRydWUsInNob3dUcmVuZGluZ01vdmllcyI6dHJ1ZSwic2hvd1RvcE1vdmllcyI6dHJ1ZSwic2hvd1NlYXJjaENhdGFsb2ciOnRydWV9%22%7D/manifest.json"
+	],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}

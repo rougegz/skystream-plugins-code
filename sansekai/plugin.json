@@ -1,0 +1,69 @@
+{
+	"packageName": "dev.cookie.sansekai",
+	"name": "Sansekai",
+	"version": 1,
+	"baseUrl": "https://api.sansekai.my.id/api",
+	"providers": [
+		{
+			"id": "melolo",
+			"name": "Melolo"
+		},
+		{
+			"id": "dramabox",
+			"name": "DramaBox"
+		},
+		{
+			"id": "goodshort",
+			"name": "GoodShort"
+		},
+		{
+			"id": "pinedrama",
+			"name": "PineDrama"
+		},
+		{
+			"id": "netshort",
+			"name": "NetShort"
+		},
+		{
+			"id": "dramanova",
+			"name": "DramaNova"
+		},
+		{
+			"id": "reelshort",
+			"name": "ReelShort"
+		},
+		{
+			"id": "shortmax",
+			"name": "ShortMax"
+		},
+		{
+			"id": "freereels",
+			"name": "FreeReels"
+		}
+	],
+	"description": "Short dramas from 9 providers.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English",
+		"Hindi",
+		"Spanish",
+		"Portuguese",
+		"Arabic",
+		"Vietnamese",
+		"Thai",
+		"Korean",
+		"Japanese",
+		"Indonesian",
+		"Filipino",
+		"Chinese",
+		"Malay",
+		"French",
+		"German"
+	],
+	"categories": [
+		"Series",
+		"Movies"
+	]
+}

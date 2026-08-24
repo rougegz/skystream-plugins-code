@@ -1,0 +1,23 @@
+{
+	"packageName": "dev.cookie.moviebox",
+	"name": "MovieBox",
+	"version": 1,
+	"baseUrl": "https://h5-api.aoneroom.com",
+	"description": "Multi-language movies, series and anime from MovieBox.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English",
+		"Hindi",
+		"Tamil",
+		"Telugu",
+		"Malayalam",
+		"Kannada",
+		"Bengali"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	]
+}

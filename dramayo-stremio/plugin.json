@@ -1,0 +1,72 @@
+{
+	"packageName": "dev.cookie.dramayo",
+	"name": "Dramayo 🇰🇷🇯🇵🇨🇳🇹🇭",
+	"version": 1,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "Asian dramas and movies with direct stream links.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"Korean",
+		"Japanese",
+		"Chinese",
+		"Thai",
+		"Filipino",
+		"English"
+	],
+	"categories": [
+		"Series",
+		"Movies"
+	],
+	"settings": [
+		{
+			"key": "fire_window",
+			"title": "Fire Window",
+			"description": "Off = instant, 30s/45s/60s = fire exactly at that time",
+			"type": "select",
+			"defaultValue": "0",
+			"reloadOnChange": true,
+			"options": [
+				{
+					"label": "Off (instant)",
+					"value": "0"
+				},
+				{
+					"label": "30 seconds",
+					"value": "30000"
+				},
+				{
+					"label": "45 seconds",
+					"value": "45000"
+				},
+				{
+					"label": "60 seconds",
+					"value": "60000"
+				}
+			]
+		},
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Fetch all external subtitles (all languages)",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live). Fixes mpv crashes and dropped links on TV.",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [
+		"https://dramayo.stream/eyJpbnN0YWxsSWQiOiJkZDFmZWYwNi0xNTNjLTQwMTEtODQwNy03ZTNkMmM5NmU4MDciLCJlbmFibGVkQ2F0YWxvZ3MiOlsiZHJhbWF5by1kaXNjb3ZlciIsImRyYW1heW8tZGlzY292ZXItbW92aWVzIiwiZHJhbWF5by1rb3JlYW4iLCJkcmFtYXlvLWNoaW5lc2UiLCJkcmFtYXlvLWphcGFuZXNlIiwiZHJhbWF5by10aGFpIiwiZHJhbWF5by10YWl3YW5lc2UiLCJkcmFtYXlvLWZpbGlwaW5vIiwiZHJhbWF5by1ob25na29uZyIsImRyYW1heW8ta29yZWFuLW1vdmllcyIsImRyYW1heW8tY2hpbmVzZS1tb3ZpZXMiLCJkcmFtYXlvLWphcGFuZXNlLW1vdmllcyIsImRyYW1heW8tdGhhaS1tb3ZpZXMiLCJkcmFtYXlvLXRhaXdhbmVzZS1tb3ZpZXMiLCJkcmFtYXlvLWZpbGlwaW5vLW1vdmllcyIsImRyYW1heW8taG9uZ2tvbmctbW92aWVzIl0sImhpZGVBbmltZSI6ZmFsc2UsImhpZGVOc2Z3Ijp0cnVlfQ==/manifest.json"
+	],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}

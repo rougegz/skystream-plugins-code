@@ -1,0 +1,72 @@
+{
+	"packageName": "dev.cookie.yastream",
+	"name": "Yastream 🇰🇷🇯🇵🇨🇳🇹🇭",
+	"version": 1,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "Asian dramas, movies and series with multi-provider streams.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"Korean",
+		"Japanese",
+		"Chinese",
+		"Thai",
+		"Filipino",
+		"English"
+	],
+	"categories": [
+		"Series",
+		"Movies"
+	],
+	"addons": [
+		"https://yastream.tamthai.de/eyJjYXRhbG9ncyI6WyJraXNza2gubW92aWUuVVMiLCJraXNza2guc2VyaWVzLlVTIiwia2lzc2toLm1vdmllLktvcmVhbiIsImtpc3NraC5zZXJpZXMuS29yZWFuIiwia2lzc2toLm1vdmllLkNoaW5lc2UiLCJraXNza2guc2VyaWVzLkNoaW5lc2UiLCJraXNza2gubW92aWUuVGhhaSIsImtpc3NraC5zZXJpZXMuVGhhaSIsImtpc3NraC5tb3ZpZS5QaGlsaXBwaW5lIiwia2lzc2toLnNlcmllcy5QaGlsaXBwaW5lIiwia2lzc2toLm1vdmllLkphcGFuZXNlIiwia2lzc2toLnNlcmllcy5KYXBhbmVzZSIsImtpc3NraC5tb3ZpZS5Ib25na29uZyIsImtpc3NraC5zZXJpZXMuSG9uZ2tvbmciLCJraXNza2guc2VyaWVzLlRhaXdhbmVzZSIsIm9uZXRvdWNodHYuc2VyaWVzLktvcmVhbiIsIm9uZXRvdWNodHYuc2VyaWVzLkNoaW5lc2UiLCJvbmV0b3VjaHR2LnNlcmllcy5Qb3B1bGFyIiwib25ldG91Y2h0di5zZXJpZXMuVGhhaSIsImtpc3NraC5zZXJpZXMuU2VhcmNoIiwia2lzc2toLm1vdmllLlNlYXJjaCIsIm9uZXRvdWNodHYuc2VyaWVzLlNlYXJjaCIsImlkcmFtYS5zZXJpZXMuaURyYW1hIiwiaWRyYW1hLnNlcmllcy5TZWFyY2giXSwiY2F0YWxvZyI6WyJraXNza2giLCJvbmV0b3VjaHR2IiwiaWRyYW1hIl0sInN0cmVhbSI6WyJraXNza2giLCJvbmV0b3VjaHR2IiwibWt2ZHJhbWEiLCJpZHJhbWEiLCJra3BoaW0iLCJvcGhpbSJdLCJuc2Z3IjpmYWxzZSwiaW5mbyI6dHJ1ZSwicG9zdGVyIjoicnBkYiIsIm1mcFVybCI6IiIsInRiS2V5IjoiIiwibWZwUGFzcyI6IiJ9/manifest.json"
+	],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	],
+	"settings": [
+		{
+			"key": "fire_window",
+			"title": "Fire Window",
+			"description": "Off = instant, 30s/45s/60s = fire exactly at that time",
+			"type": "select",
+			"defaultValue": "0",
+			"reloadOnChange": true,
+			"options": [
+				{
+					"label": "Off (instant)",
+					"value": "0"
+				},
+				{
+					"label": "30 seconds",
+					"value": "30000"
+				},
+				{
+					"label": "45 seconds",
+					"value": "45000"
+				},
+				{
+					"label": "60 seconds",
+					"value": "60000"
+				}
+			]
+		},
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Fetch all external subtitles (all languages)",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live). Fixes mpv crashes and dropped links on TV.",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	]
+}
