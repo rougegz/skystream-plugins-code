@@ -5,7 +5,7 @@
   var CFG = {
     MANIFEST_TIMEOUT_MS: 15000,
     CATALOG_TIMEOUT_MS: 15000,
-    META_TIMEOUT_MS: 10000,
+    META_TIMEOUT_MS: 20000,
     STREAM_TIMEOUT_MS: 12000,
     SUB_TIMEOUT_MS: 8000,
     SEARCH_TIMEOUT_MS: 10000,
@@ -255,7 +255,7 @@
         title: "Fire Window",
         description: "Off = instant, 30s/45s/60s = fire exactly at that time",
         type: "select",
-        defaultValue: "0",
+        defaultValue: "45000",
         reloadOnChange: true,
         options: [
           { label: "Off (instant)", value: "0" },
@@ -331,12 +331,13 @@
     if (!b || b.charAt(0) === "<") return null;
     return safeJson(b, null);
   }
-  function fetchJson(url, timeoutMs, retries) {
+  function fetchJson(url, timeoutMs, retries, fullWindow) {
     return (async function () {
       var hasRetry = (retries || 0) > 0;
-      var t = hasRetry
-        ? Math.max(2000, Math.round(timeoutMs * 0.6))
-        : timeoutMs;
+      var t =
+        hasRetry && !fullWindow
+          ? Math.max(2000, Math.round(timeoutMs * 0.6))
+          : timeoutMs;
       var d = await httpJson(url, t);
       if (d) return d;
       if (hasRetry) {
@@ -1339,7 +1340,8 @@
         break;
       }
     var meta = null;
-    if (ref.id) {
+    if (ref.id) meta = cacheGet("meta:" + ref.type + ":" + ref.id);
+    if (ref.id && !meta) {
       var mu = appendQuery(
         ref.base +
           "/meta/" +
@@ -1356,7 +1358,9 @@
       // Stage 1: own addon + cinemeta raced in parallel. Primary gets a short
       // grace window; if it hasn't answered, pre-warmed cinemeta results are
       // used immediately instead of waiting out the primary timeout.
-      var primaryP = fetchJson(mu, CFG.META_TIMEOUT_MS, 1);
+      // fullWindow: slow hosts (cold TMDB lookups ~10-15s) need whole-window
+      // attempts; split windows would miss both shots.
+      var primaryP = fetchJson(mu, CFG.META_TIMEOUT_MS, 1, true);
       var cmPs = [];
       if (/^tt\d+/.test(ref.id)) {
         var cmTypes =
@@ -1430,7 +1434,15 @@
           }
         }
       }
+      // Last resort: every alternative failed — wait out the primary's own
+      // budget instead of rendering fallback while it is still in flight.
+      if (!meta || !meta.name) {
+        var pm = extract(await primaryP);
+        if (pm && pm.name) meta = pm;
+      }
     }
+    if (ref.id && meta && meta.name)
+      cacheSet("meta:" + ref.type + ":" + ref.id, meta, CFG.CATALOG_CACHE_TTL);
     if (!meta) return fallbackDetail(url, "", _engL);
     var type = skyType(
       meta.type || ref.type,
