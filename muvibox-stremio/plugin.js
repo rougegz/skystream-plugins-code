@@ -310,7 +310,6 @@
       );
     });
     var s = safeInt(resp && (resp.status || resp.statusCode || resp.code), 0);
-    // Follow redirects ourselves: some host HTTP stacks return the 30x as-is.
     if (
       resp &&
       (s === 301 || s === 302 || s === 303 || s === 307 || s === 308) &&
@@ -1600,7 +1599,7 @@
           a.base + "/stream/" + t + "/" + encodeURIComponent(ref.id) + ".json",
           a.queryStr,
         );
-        return fetchJson(reqUrl, CFG.STREAM_TIMEOUT_MS, 1).then(
+        return fetchJson(reqUrl, CFG.STREAM_TIMEOUT_MS, 1, true).then(
           function (data) {
             var list = data && Array.isArray(data.streams) ? data.streams : [];
             var out = [];
@@ -1612,19 +1611,13 @@
           },
         );
       });
-      return withDeadline(
-        settle(fetches).then(function (rs) {
-          var acc = [];
-          rs.forEach(function (r) {
-            if (r.ok && Array.isArray(r.value)) acc = acc.concat(r.value);
-          });
-          return acc;
-        }),
-        CFG.STREAM_TIMEOUT_MS,
-        function () {
-          return [];
-        },
-      );
+      return settle(fetches).then(function (rs) {
+        var acc = [];
+        rs.forEach(function (r) {
+          if (r.ok && Array.isArray(r.value)) acc = acc.concat(r.value);
+        });
+        return acc;
+      });
     });
     var subJob = settings.englishSubs
       ? withDeadline(
