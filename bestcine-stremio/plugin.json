@@ -59,7 +59,10 @@
 		}
 	],
 	"addons": [
-		"https://bestcine.alwaysdata.net/manifest.json"
+		"https://bestcine.alwaysdata.net/manifest.json",
+		"https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIiwiaGluZGkiLCJ0YW1pbCIsInRlbHVndSIsImFyYWJpYyIsInBvcnR1Z3Vlc2UiXSwic291cmNlIjoidHJ1c3RlZCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
+		"https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6InVzZXJzIiwiYWlUcmFuc2xhdGVkIjp0cnVlLCJhdXRvQWRqdXN0bWVudCI6dHJ1ZX0=/manifest.json",
+		"https://2ecbbd610840-opensubtitles.baby-beamup.club/english/manifest.json"
 	],
 	"metadataAddons": [
 		"https://v3-cinemeta.strem.io/manifest.json"
