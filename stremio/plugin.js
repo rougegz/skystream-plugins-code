@@ -7,9 +7,6 @@
     CATALOG_TIMEOUT_MS: 15e3,
     META_TIMEOUT_MS: 2e4,
     STREAM_TIMEOUT_MS: 12e3,
-    STREAM_PROBE_MS: 3e3,
-    STREAM_PROBE_POOL: 24,
-    STREAM_PROBE_MAX: 36,
     SUB_TIMEOUT_MS: 2e4,
     SEARCH_TIMEOUT_MS: 1e4,
     HARD_CEILING_MS: 6e4,
@@ -991,12 +988,6 @@
             headers[hk] = safeStr(ph.request[hk]);
       if (!headers["User-Agent"] && !headers["user-agent"])
         headers["User-Agent"] = UA;
-      if (
-        s.behaviorHints &&
-        s.behaviorHints.notWebReady === true &&
-        /^https?:/i.test(url)
-      )
-        url = "MAGIC_PROXY_v1" + btoa(url);
       var res = detectResolution(lt),
         size = detectSize(s, lt),
         seeders = extractCount(lt, s, "seeders"),
@@ -1022,11 +1013,19 @@
               lang: safeStr(x.lang || "en"),
             });
         });
+      var bh = {};
+      if (s.behaviorHints && typeof s.behaviorHints === "object") {
+        var fn2 = safeStr(s.behaviorHints.filename);
+        if (fn2) bh.filename = fn2;
+        var vs = Number(s.behaviorHints.videoSize);
+        if (vs > 0) bh.videoSize = vs;
+      }
       return clean({
         url: url,
         source: source,
         quality: res.res || undefined,
         headers: Object.keys(headers).length ? headers : undefined,
+        behaviorHints: Object.keys(bh).length ? bh : undefined,
         subtitles: inlineSubs.length ? inlineSubs : undefined,
         _sortKey: res.key,
         _seeders: seeders,
@@ -1035,84 +1034,6 @@
     } catch (e) {
       return null;
     }
-  }
-  function probeUrl(url, headers) {
-    // 0 = dead (404/410/5xx or network failure), 2 = alive, 1 = unknown
-    return new Promise(function (resolve) {
-      var done = false;
-      var t = setTimeout(function () {
-        if (!done) {
-          done = true;
-          resolve(0);
-        }
-      }, CFG.STREAM_PROBE_MS);
-      try {
-        http_get(url, headers || {}).then(
-          function (r) {
-            if (done) return;
-            done = true;
-            clearTimeout(t);
-            var st = safeInt(r && (r.status || r.statusCode || r.code), 0);
-            if (st === 404 || st === 410 || st >= 500) resolve(0);
-            else if (st >= 200 && st < 500) resolve(2);
-            else resolve(1);
-          },
-          function () {
-            if (!done) {
-              done = true;
-              clearTimeout(t);
-              resolve(0);
-            }
-          },
-        );
-      } catch (e) {
-        if (!done) {
-          done = true;
-          clearTimeout(t);
-          resolve(1);
-        }
-      }
-    });
-  }
-  async function verifyStreams(streams) {
-    if (!streams.length || CFG.STREAM_PROBE_MAX <= 0) return streams;
-    var idx = [];
-    for (
-      var i = 0;
-      i < streams.length && idx.length < CFG.STREAM_PROBE_MAX;
-      i++
-    )
-      if (
-        isHttpStr(streams[i].url) &&
-        streams[i].url.indexOf("MAGIC_PROXY_v1") !== 0
-      )
-        idx.push(i);
-    if (!idx.length) return streams;
-    var res = await pool(idx, CFG.STREAM_PROBE_POOL, function (i) {
-      var s = streams[i];
-      return probeUrl(s.url, s.headers).then(function (v) {
-        if (v === 2) return 2;
-        return probeUrl(s.url, s.headers).then(function (v2) {
-          if (v2 === 2 || v === 2) return 2;
-          if (v === 0 && v2 === 0) return 0;
-          return 1;
-        });
-      });
-    });
-    for (var k = 0; k < idx.length; k++)
-      streams[idx[k]]._probe = res[k] && res[k].ok ? res[k].value : 1;
-    streams.forEach(function (s, si) {
-      s._pi = si;
-      if (s._probe === undefined) s._probe = 1;
-    });
-    streams.sort(function (a, b) {
-      return b._probe - a._probe || a._pi - b._pi;
-    });
-    streams.forEach(function (s) {
-      delete s._probe;
-      delete s._pi;
-    });
-    return streams;
   }
   function dedupeAndSort(streams) {
     var seen = {},
@@ -1724,7 +1645,7 @@
           a.base + "/stream/" + t + "/" + encodeURIComponent(ref.id) + ".json",
           a.queryStr,
         );
-        return fetchJson(reqUrl, CFG.STREAM_TIMEOUT_MS, 0).then(
+        return fetchJson(reqUrl, CFG.STREAM_TIMEOUT_MS, 1).then(
           function (data) {
             var list = data && Array.isArray(data.streams) ? data.streams : [];
             var out = [];
@@ -1770,9 +1691,6 @@
         ? subRes[0].value
         : [];
     var finalStreams = dedupeAndSort(streams);
-    // Probe http(s) links (3s timeout, 1 retry): verified-alive first,
-    // unknown middle, dead last. Magnets and proxy-wrapped links pass through.
-    finalStreams = await verifyStreams(finalStreams);
     if (settings.englishSubs && subs.length) attachSubs(finalStreams, subs);
     if (settings.fireWindowMs !== 0) {
       var remain = settings.fireWindowMs - (Date.now() - started);
