@@ -22,6 +22,16 @@
     MAX_SUBS: 12,
     CACHE_MAX_ENTRIES: 400,
     CLIENT_FILTER_LIMIT: 40,
+    POOL_MANIFESTS: 16,
+    POOL_CATALOGS: 24,
+    POOL_SEARCH: 24,
+    POOL_META: 12,
+    MAX_HOME_JOBS: 140,
+    MAX_SEARCH_TASKS: 150,
+    MANIFEST_PHASE_MS: 8000,
+    HOME_PHASE_MS: 12000,
+    NEG_TTL_MS: 30000,
+    RETRY_BACKOFF_MS: 250,
   };
   var JSON_HEADERS = {
     "User-Agent": UA,
@@ -94,26 +104,57 @@
       setTimeout(r, ms);
     });
   }
-  function pLimit(concurrency) {
-    var queue = [];
-    var activeCount = 0;
-    var next = function () {
-      if (queue.length === 0 || activeCount >= concurrency) return;
-      activeCount++;
-      var fn = queue.shift();
-      fn().then(function () {
-        activeCount--;
-        next();
-      });
-    };
-    return function (fn) {
-      return new Promise(function (resolve, reject) {
-        queue.push(function () {
-          return Promise.resolve().then(fn).then(resolve, reject);
-        });
-        next();
-      });
-    };
+  function pool(items, concurrency, fn) {
+    var list = Array.isArray(items) ? items : [];
+    var n = Math.max(1, concurrency | 0);
+    var out = new Array(list.length);
+    if (!list.length) return Promise.resolve(out);
+    var idx = 0;
+    function worker() {
+      return (async function () {
+        while (true) {
+          var i = idx;
+          if (i >= list.length) return;
+          idx = i + 1;
+          var v = null,
+            ok = true;
+          try {
+            v = await fn(list[i], i);
+          } catch (e) {
+            ok = false;
+          }
+          out[i] = { ok: ok, value: ok ? v : null };
+        }
+      })();
+    }
+    var ws = [];
+    for (var w = 0; w < Math.min(n, list.length); w++) ws.push(worker());
+    return Promise.all(ws).then(function () {
+      return out;
+    });
+  }
+  function roundRobin(tasks, keyFn) {
+    var byKey = {};
+    var keys = [];
+    tasks.forEach(function (t) {
+      var k = keyFn(t);
+      if (!byKey[k]) {
+        byKey[k] = [];
+        keys.push(k);
+      }
+      byKey[k].push(t);
+    });
+    var out = [];
+    var maxLen = 0;
+    keys.forEach(function (k) {
+      if (byKey[k].length > maxLen) maxLen = byKey[k].length;
+    });
+    for (var i = 0; i < maxLen; i++)
+      for (var ki = 0; ki < keys.length; ki++) {
+        var arr = byKey[keys[ki]];
+        if (arr[i]) out.push(arr[i]);
+      }
+    return out;
   }
   function withDeadline(p, ms, fb) {
     var t;
@@ -242,7 +283,22 @@
       },
     ];
   }
-  async function httpJson(url, timeoutMs) {
+  var _inflight = new Map();
+  function httpJson(url, timeoutMs) {
+    var key = safeStr(url);
+    var ex = _inflight.get(key);
+    if (ex) return ex;
+    var p = _httpJsonOnce(url, timeoutMs);
+    _inflight.set(key, p);
+    var fin = function () {
+      setTimeout(function () {
+        if (_inflight.get(key) === p) _inflight.delete(key);
+      }, 0);
+    };
+    p.then(fin, fin);
+    return p;
+  }
+  async function _httpJsonOnce(url, timeoutMs) {
     var done = false;
     var resp = await new Promise(function (resolve) {
       var t = setTimeout(function () {
@@ -275,14 +331,21 @@
     if (!b || b.charAt(0) === "<") return null;
     return safeJson(b, null);
   }
-  async function fetchJson(url, timeoutMs, retries) {
-    var d = await httpJson(url, timeoutMs);
-    if (d) return d;
-    if ((retries || 0) > 0) {
-      await delay(400);
-      return httpJson(url, timeoutMs);
-    }
-    return null;
+  function fetchJson(url, timeoutMs, retries) {
+    return (async function () {
+      var hasRetry = (retries || 0) > 0;
+      var t = hasRetry
+        ? Math.max(2000, Math.round(timeoutMs * 0.6))
+        : timeoutMs;
+      var d = await httpJson(url, t);
+      if (d) return d;
+      if (hasRetry) {
+        await delay(CFG.RETRY_BACKOFF_MS + Math.floor(Math.random() * 150));
+        d = await httpJson(url, t);
+        if (d) return d;
+      }
+      return null;
+    })();
   }
   function collectAddonUrls() {
     var out = [],
@@ -427,32 +490,51 @@
   function getAddons() {
     return (async function () {
       var urls = collectAddonUrls();
-      var results = await settle(
-        urls.map(function (u) {
-          var c = cacheGet("mf:" + u);
-          if (c) return c;
-          return fetchJson(u, CFG.MANIFEST_TIMEOUT_MS, 2).then(function (mf) {
+      function build() {
+        var addons = [];
+        urls.forEach(function (u) {
+          var mf = cacheGet("mf:" + u);
+          if (!mf) return;
+          var a = normalizeAddon(u, mf);
+          if (a) addons.push(a);
+        });
+        return addons;
+      }
+      var need = urls.filter(function (u) {
+        return !cacheGet("mf:" + u) && !cacheGet("mfneg:" + u);
+      });
+      // Phase-bounded: hanging hosts can't stall the UI; their pool keeps
+      // running in the background and fills the cache for the next screen.
+      await withDeadline(
+        pool(need, CFG.POOL_MANIFESTS, function (u) {
+          return fetchJson(u, CFG.MANIFEST_TIMEOUT_MS, 1).then(function (mf) {
             if (mf) cacheSet("mf:" + u, mf, CFG.MANIFEST_CACHE_TTL);
-            return mf;
+            else cacheSet("mfneg:" + u, 1, CFG.NEG_TTL_MS);
           });
         }),
+        CFG.MANIFEST_PHASE_MS,
+        function () {
+          return null;
+        },
       );
-      var allFailed = results.every(function (r) {
-        return !r.ok || !r.value;
-      });
-      if (allFailed && urls.length) {
-        await delay(800);
-        results = await settle(
-          urls.map(function (u) {
-            return fetchJson(u, CFG.MANIFEST_TIMEOUT_MS, 2);
+      var addons = build();
+      if (!addons.length && urls.length) {
+        await delay(500);
+        var retry = urls.filter(function (u) {
+          return !cacheGet("mf:" + u);
+        });
+        await withDeadline(
+          pool(retry, CFG.POOL_MANIFESTS, function (u) {
+            return fetchJson(u, CFG.MANIFEST_TIMEOUT_MS, 1).then(function (mf) {
+              if (mf) cacheSet("mf:" + u, mf, CFG.MANIFEST_CACHE_TTL);
+            });
           }),
+          CFG.MANIFEST_PHASE_MS,
+          function () {
+            return null;
+          },
         );
-      }
-      var addons = [];
-      for (var i = 0; i < results.length; i++) {
-        if (!results[i].ok) continue;
-        var a = normalizeAddon(urls[i], results[i].value);
-        if (a) addons.push(a);
+        addons = build();
       }
       return addons;
     })();
@@ -1050,8 +1132,7 @@
     var ck = "home:p" + pn;
     var cached = cacheGet(ck);
     if (cached) return { success: true, data: cached };
-    var jobs = [],
-      meta = [];
+    var descs = [];
     addons.forEach(function (a) {
       if (!a.hasCatalog) return;
       a.catalogs.forEach(function (c) {
@@ -1074,19 +1155,38 @@
             (pn - 1) * 100 +
             ".json";
         u = appendQuery(u, a.queryStr);
-        jobs.push(fetchJson(u, CFG.CATALOG_TIMEOUT_MS, 1));
-        meta.push({ addon: a, cat: c });
+        descs.push({
+          addon: a,
+          cat: c,
+          start: function () {
+            return fetchJson(u, CFG.CATALOG_TIMEOUT_MS, 1);
+          },
+        });
       });
     });
-    var res = await settle(jobs);
+    var orderedDescs = roundRobin(descs, function (d) {
+      return d.addon.url;
+    }).slice(0, CFG.MAX_HOME_JOBS);
+    // Phase-bounded: sections from finished catalogs render even if a few
+    // addon hosts hang; unfinished slots are skipped gracefully.
+    var res =
+      (await withDeadline(
+        pool(orderedDescs, CFG.POOL_CATALOGS, function (d) {
+          return d.start();
+        }),
+        CFG.HOME_PHASE_MS,
+        function () {
+          return null;
+        },
+      )) || [];
     var home = {},
       order = [];
     for (var i = 0; i < res.length; i++) {
       var r = res[i];
-      if (!r.ok || !r.value) continue;
+      if (!r || !r.ok || !r.value) continue;
       var ms = r.value.metas;
       if (!Array.isArray(ms) || !ms.length) continue;
-      var m = meta[i];
+      var m = orderedDescs[i];
       var sec = safeStr(m.cat.name || m.cat.id);
       if (order.indexOf(sec) !== -1) {
         var tp = sec + " (" + safeStr(m.cat.type) + ")";
@@ -1126,100 +1226,75 @@
     var addons = await getAddons();
     if (!addons.length) return { success: true, data: [] };
     var qLower = query.toLowerCase();
+    function mkTask(a, cat, u) {
+      return {
+        addon: a,
+        cat: cat,
+        start: function () {
+          return fetchJson(u, CFG.SEARCH_TIMEOUT_MS, 1);
+        },
+      };
+    }
     var nativeTasks = [];
     var filterTasks = [];
     addons.forEach(function (a) {
+      var filterCount = 0;
       a.catalogs.forEach(function (cat) {
         var ex = Array.isArray(cat.extra) ? cat.extra : [];
         var hasSearch = ex.some(function (x) {
           return x && (x.name === "search" || x.name === "Search");
         });
         if (hasSearch) {
-          var u = appendQuery(
-            a.base +
-              "/catalog/" +
-              cat.type +
-              "/" +
-              cat.id +
-              "/search=" +
-              encodeURIComponent(query) +
-              ".json",
-            a.queryStr,
+          nativeTasks.push(
+            mkTask(
+              a,
+              cat,
+              appendQuery(
+                a.base +
+                  "/catalog/" +
+                  cat.type +
+                  "/" +
+                  cat.id +
+                  "/search=" +
+                  encodeURIComponent(query) +
+                  ".json",
+                a.queryStr,
+              ),
+            ),
           );
-          nativeTasks.push({
-            addon: a,
-            cat: cat,
-            isNative: true,
-            p: fetchJson(u, CFG.SEARCH_TIMEOUT_MS, 1),
-          });
-        }
-      });
-      var filterCount = 0;
-      a.catalogs.forEach(function (cat) {
-        var ex = Array.isArray(cat.extra) ? cat.extra : [];
-        if (
-          ex.some(function (x) {
-            return x && (x.name === "search" || x.name === "Search");
-          })
-        )
           return;
+        }
         if (filterCount >= 6) return;
         filterCount++;
-        var u = appendQuery(
-          a.base +
-            "/catalog/" +
-            cat.type +
-            "/" +
-            cat.id +
-            ".json?limit=" +
-            CFG.CLIENT_FILTER_LIMIT,
-          a.queryStr,
+        filterTasks.push(
+          mkTask(
+            a,
+            cat,
+            appendQuery(
+              a.base +
+                "/catalog/" +
+                cat.type +
+                "/" +
+                cat.id +
+                ".json?limit=" +
+                CFG.CLIENT_FILTER_LIMIT,
+              a.queryStr,
+            ),
+          ),
         );
-        filterTasks.push({
-          addon: a,
-          cat: cat,
-          isFilter: true,
-          p: fetchJson(u, CFG.SEARCH_TIMEOUT_MS, 1),
-        });
       });
     });
-    function roundRobin(tasks) {
-      var byAddon = {};
-      tasks.forEach(function (t) {
-        var key = t.addon.url;
-        if (!byAddon[key]) byAddon[key] = [];
-        byAddon[key].push(t);
-      });
-      var keys = Object.keys(byAddon);
-      var out = [];
-      var maxLen = Math.max.apply(
-        null,
-        keys.map(function (k) {
-          return byAddon[k].length;
-        }),
-      );
-      for (var i = 0; i < maxLen; i++) {
-        for (var ki = 0; ki < keys.length; ki++) {
-          var arr = byAddon[keys[ki]];
-          if (arr[i]) out.push(arr[i]);
-        }
-      }
-      return out;
-    }
-    var limit = pLimit(12);
-    var nativeTasksRR = roundRobin(nativeTasks).slice(0, 150);
-    var nativeResults = await settle(
-      nativeTasksRR.map(function (t) {
-        return limit(function () {
-          return t.p;
-        });
-      }),
-    );
+    var nativeRR = roundRobin(nativeTasks, function (t) {
+      return t.addon.url;
+    }).slice(0, CFG.MAX_SEARCH_TASKS);
+    var nativeResults = await pool(nativeRR, CFG.POOL_SEARCH, function (t) {
+      return t.start();
+    });
     var all = [];
     for (var i = 0; i < nativeResults.length; i++) {
       var r = nativeResults[i];
-      if (!r.ok || !r.value || !Array.isArray(r.value.metas)) continue;
-      var tk = nativeTasksRR[i];
+      if (!r || !r.ok || !r.value || !Array.isArray(r.value.metas)) continue;
+      var tk = nativeRR[i];
       for (var mi = 0; mi < r.value.metas.length; mi++) {
         var it = toItem(r.value.metas[mi], tk.addon, tk.cat.type, _engS);
         if (it) all.push(it);
@@ -1229,25 +1304,21 @@
       if (all.length > CFG.MAX_SEARCH) all = all.slice(0, CFG.MAX_SEARCH);
       return { success: true, data: all };
     }
-    var filterTasksRR = roundRobin(filterTasks).slice(
-      0,
-      150 - nativeTasksRR.length,
-    );
-    var filterResults = await settle(
-      filterTasksRR.map(function (t) {
-        return limit(function () {
-          return t.p;
-        });
-      }),
-    );
-    for (var i = 0; i < filterResults.length; i++) {
-      var r = filterResults[i];
-      if (!r.ok || !r.value || !Array.isArray(r.value.metas)) continue;
-      var tk = filterTasksRR[i];
-      for (var mi2 = 0; mi2 < r.value.metas.length; mi2++) {
-        var mm = r.value.metas[mi2];
+    var filterRR = roundRobin(filterTasks, function (t) {
+      return t.addon.url;
+    }).slice(0, Math.max(0, CFG.MAX_SEARCH_TASKS - nativeRR.length));
+    var filterResults = await pool(filterRR, CFG.POOL_SEARCH, function (t) {
+      return t.start();
+    });
+    for (var fi = 0; fi < filterResults.length; fi++) {
+      var fr = filterResults[fi];
+      if (!fr || !fr.ok || !fr.value || !Array.isArray(fr.value.metas))
+        continue;
+      var fk = filterRR[fi];
+      for (var mi2 = 0; mi2 < fr.value.metas.length; mi2++) {
+        var mm = fr.value.metas[mi2];
         if (metaMatches(mm, qLower)) {
-          var it2 = toItem(mm, tk.addon, tk.cat.type, _engS);
+          var it2 = toItem(mm, fk.addon, fk.cat.type, _engS);
           if (it2) all.push(it2);
         }
       }
@@ -1282,40 +1353,12 @@
         if (!p) return null;
         return p.meta || (Array.isArray(p.metas) ? p.metas[0] : null);
       }
-      meta = extract(await fetchJson(mu, CFG.META_TIMEOUT_MS, 0));
-      if (!meta || !meta.name) {
-        await delay(600);
-        meta = extract(await fetchJson(mu, CFG.META_TIMEOUT_MS, 0));
-      }
-      if (!meta || !meta.name) {
-        var sibs = addons.filter(function (x) {
-          return x.hasMeta && x.base !== ref.base;
-        });
-        for (var si = 0; si < sibs.length && !meta; si++) {
-          var sm = await fetchJson(
-            appendQuery(
-              sibs[si].base +
-                "/meta/" +
-                ref.type +
-                "/" +
-                encodeURIComponent(ref.id) +
-                ".json",
-              sibs[si].queryStr,
-            ),
-            CFG.META_TIMEOUT_MS,
-            0,
-          );
-          if (
-            sm &&
-            sm.meta &&
-            sm.meta.name &&
-            safeStr(sm.meta.id) === safeStr(ref.id)
-          )
-            meta = sm.meta;
-          else if (sm && sm.meta && sm.meta.name && !sm.meta.id) meta = sm.meta;
-        }
-      }
-      if ((!meta || !meta.name) && /^tt\d+/.test(ref.id)) {
+      // Stage 1: own addon + cinemeta raced in parallel. Primary gets a short
+      // grace window; if it hasn't answered, pre-warmed cinemeta results are
+      // used immediately instead of waiting out the primary timeout.
+      var primaryP = fetchJson(mu, CFG.META_TIMEOUT_MS, 1);
+      var cmPs = [];
+      if (/^tt\d+/.test(ref.id)) {
         var cmTypes =
           ref.type === "movie"
             ? ["movie"]
@@ -1324,15 +1367,68 @@
               : ["series", "movie"];
         var bases = collectMetadataUrls().map(baseOf);
         if (!bases.length) bases = ["https://v3-cinemeta.strem.io"];
-        for (var bi = 0; bi < bases.length && !meta; bi++)
-          for (var ci = 0; ci < cmTypes.length && !meta; ci++) {
-            var cm = await fetchJson(
-              bases[bi] + "/meta/" + cmTypes[ci] + "/" + ref.id + ".json",
-              CFG.META_TIMEOUT_MS,
-              0,
+        bases.forEach(function (b) {
+          cmTypes.forEach(function (ct) {
+            cmPs.push(
+              fetchJson(
+                b + "/meta/" + ct + "/" + ref.id + ".json",
+                CFG.META_TIMEOUT_MS,
+                0,
+              ),
             );
-            if (cm && cm.meta && cm.meta.name) meta = cm.meta;
+          });
+        });
+      }
+      var graceMs = Math.min(3000, Math.round(CFG.META_TIMEOUT_MS * 0.35));
+      function primaryMeta() {
+        return primaryP.then(function (p) {
+          var m = extract(p);
+          return m && m.name ? m : null;
+        });
+      }
+      function graceTick() {
+        return delay(graceMs).then(function () {
+          return null;
+        });
+      }
+      meta = await Promise.race([primaryMeta(), graceTick()]);
+      if (!meta || !meta.name) {
+        var crs = await settle(cmPs);
+        for (var ci = 0; ci < crs.length && !meta; ci++) {
+          var cm = crs[ci] && crs[ci].ok ? crs[ci].value : null;
+          if (cm && cm.meta && cm.meta.name) meta = cm.meta;
+        }
+      }
+      if (!meta || !meta.name) {
+        meta = await Promise.race([primaryMeta(), graceTick()]);
+      }
+      // Stage 2: sibling meta addons fetched in parallel, own-id match first.
+      if (!meta || !meta.name) {
+        var sibs = addons.filter(function (x) {
+          return x.hasMeta && x.base !== ref.base;
+        });
+        var srs = await pool(sibs, CFG.POOL_META, function (s) {
+          return fetchJson(
+            appendQuery(
+              s.base +
+                "/meta/" +
+                ref.type +
+                "/" +
+                encodeURIComponent(ref.id) +
+                ".json",
+              s.queryStr,
+            ),
+            CFG.META_TIMEOUT_MS,
+            0,
+          );
+        });
+        for (var si = 0; si < srs.length && !meta; si++) {
+          var sm = srs[si] && srs[si].ok ? srs[si].value : null;
+          if (sm && sm.meta && sm.meta.name) {
+            if (safeStr(sm.meta.id) === safeStr(ref.id)) meta = sm.meta;
+            else if (!sm.meta.id) meta = sm.meta;
           }
+        }
       }
     }
     if (!meta) return fallbackDetail(url, "", _engL);
@@ -1450,15 +1546,16 @@
           },
         )
       : Promise.resolve([]);
-    jobs.push(subJob);
     var results = await settle(jobs);
-    var subs = [],
-      streams = [];
-    results.forEach(function (r, idx) {
-      if (!r.ok || !Array.isArray(r.value)) return;
-      if (idx === jobs.length - 1) subs = r.value;
-      else streams = streams.concat(r.value);
+    var streams = [];
+    results.forEach(function (r) {
+      if (r.ok && Array.isArray(r.value)) streams = streams.concat(r.value);
     });
+    var subRes = await settle([subJob]);
+    var subs =
+      subRes[0] && subRes[0].ok && Array.isArray(subRes[0].value)
+        ? subRes[0].value
+        : [];
     var finalStreams = dedupeAndSort(streams);
     if (settings.englishSubs && subs.length) attachSubs(finalStreams, subs);
     if (settings.fireWindowMs !== 0) {
