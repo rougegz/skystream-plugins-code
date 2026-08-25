@@ -1,0 +1,43 @@
+{
+	"packageName": "dev.cookie.bidooo",
+	"name": "Arabic Cartoon Aziz🇸🇦 ",
+	"version": 1,
+	"baseUrl": "https://stremio-hub.local",
+	"description": "Arabic cartoons. Provides streaming links for cartoon episodes.",
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"Arabic"
+	],
+	"categories": [
+		"Series",
+		"Movies"
+	],
+	"settings": [
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Fetch all external subtitles (all languages)",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		},
+		{
+			"key": "force_exoplayer",
+			"title": "Only Use ExoPlayer",
+			"description": "Force ExoPlayer for playback (marks content as live). Fixes mpv crashes and dropped links on TV.",
+			"type": "toggle",
+			"defaultValue": "false",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [
+		"https://cartoon-aziz-addon.onrender.com/c/eyJzaG93UXVhbGl0eSI6dHJ1ZSwidXNlUG9zdGVyIjp0cnVlLCJoaWRlTWlzc2luZyI6dHJ1ZSwiYXV0b3BsYXkiOnRydWUsIm5ld2VzdEZpcnN0IjpmYWxzZSwicXVhbGl0eSI6ImF1dG8ifQ/manifest.json",
+		"https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIiwiaGluZGkiLCJ0YW1pbCIsInRlbHVndSIsImFyYWJpYyIsInBvcnR1Z3Vlc2UiXSwic291cmNlIjoidHJ1c3RlZCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
+		"https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6InVzZXJzIiwiYWlUcmFuc2xhdGVkIjp0cnVlLCJhdXRvQWRqdXN0bWVudCI6dHJ1ZX0=/manifest.json"
+	],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}
