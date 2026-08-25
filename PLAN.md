@@ -79,3 +79,18 @@
      (default ON). Generate visible toggles in plugin.json from urls.json if
      UI list desired.
   4. Debug handle: globalThis.__haru (loadIndex/callProvider/etc).
+
+# VEGAPP FIX (next session priority) — vega plugins fail in-app entirely
+Symptoms: meta/categories/streams ALL fail in SkyStream app (CLI worked partially).
+Repos to analyze: vega-org/vega-app (OFFICIAL app = ground truth for module contract!),
+akashdh11/skystream, Zenda-Cross/vega-providers, Hindmovie vegamovies plugin.
+Plan:
+1. Read vega-org/vega-app provider runtime FIRST - it defines the REAL
+   providerContext/module API my shims must match exactly (axios shape,
+   cheerio subset, getBaseUrl caching via providerGlobal, signal handling).
+2. Compare against harustream-vegapp/plugin.js shims; fix gaps (likely:
+   axios response shape .data vs text, cheerio .load chaining, headers case).
+3. Debug per-provider via skystream CLI + __haru handle; log module errors
+   instead of swallowing (add err capture to pool/callProvider).
+4. Regenerate 30 folders from fixed engine; CLI-test each; push.
+5. Subagents returned empty all session - do analysis manually if repeats.
