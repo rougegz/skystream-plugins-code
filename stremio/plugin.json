@@ -9,9 +9,7 @@
 	],
 	"languages": [
 		"English",
-		"Hindi",
-		"Korean",
-		"Japanese"
+		"Hindi"
 	],
 	"categories": [
 		"Movies",
@@ -44,6 +42,7 @@
 		"https://flixnest.app/flix-streams/manifest.json",
 		"https://free.flixnest.app/eNqNUltuGzEMvIu-I2C9XiuGr1IEhCxxs6z1ikSt0xa9e7V-JI7rAv2SNEMOqSF_CcBSMDBpB45mBJzbq4B2Lh7BusIZtS8QkI8xH8SOc8UnAWNGhGIm9FrsRN_1qlN9L8_ZciTHmGWKZTnmtXgSn1JGM77GTFjE7tsnLkuKmSVjCFTkkfzeoY1Bmkn7RDGUiVKRSyW5NHoreUnVnGSh8OrwNv_I-gG6xNpY9ye0RVzvnt7Rfrz-UchkMgfkM_3y5W-TDgEdnA1YPviFpmBctQjaVsdiN2pXmpkYdKsGw2GyU91fLb6gVpP74SM3B-6Zq-y90MOJ_lfQzcAtZTR8V_LU4FA_0AcacLLoNNqLTYtDFAq3lQKybVtGAvWmVkp1b2se6iapbuOHZ7VX07Dttpvt6rlPm-_N-BtZJo8wxux1a0qs-ulv-mcM2LiU40wWM7hotGthKaOn6s9N8gx-XaHEms3dBoqX338AGUUiGA/manifest.json",
 		"https://hdhub.thevolecitor.qzz.io/eyJ0b3Jib3giOiJ1bnNldCIsInF1YWxpdGllcyI6IjIxNjBwLDEwODBwLDcyMHAsNDgwcCIsInNvcnQiOiJkZXNjIiwiY2F0YWxvZ3MiOiIifQ/manifest.json",
+		"https://sootiofortheweebs.midnightignite.me/%7B%22DebridServices%22%3A%5B%7B%22provider%22%3A%22httpstreaming%22%2C%22http4khdhub%22%3Atrue%2C%22httpHDHub4u%22%3Atrue%2C%22httpUHDMovies%22%3Atrue%2C%22httpMoviesDrive%22%3Atrue%2C%22httpMKVCinemas%22%3Atrue%2C%22httpMkvDrama%22%3Atrue%2C%22httpMalluMv%22%3Atrue%2C%22httpCineDoze%22%3Atrue%2C%22httpXDMovies%22%3Atrue%2C%22httpVixSrc%22%3Atrue%2C%22httpNetflixMirror%22%3Atrue%2C%22httpMoviesMod%22%3Atrue%2C%22httpMoviesLeech%22%3Atrue%2C%22httpAnimeFlix%22%3Atrue%2C%22enableProxy%22%3Afalse%2C%22proxyUrl%22%3A%22%22%2C%22proxyPassword%22%3A%22%22%7D%5D%2C%22Languages%22%3A%5B%22english%22%2C%22hindi%22%2C%22tamil%22%2C%22telugu%22%5D%2C%22Resolutions%22%3A%5B%5D%2C%22Scrapers%22%3A%5B%22jackett%22%2C%221337x%22%2C%22btdig%22%2C%22bitmagnet%22%2C%22knaben%22%2C%22extto%22%2C%22torrentdownload%22%5D%2C%22IndexerScrapers%22%3A%5B%22zilean%22%2C%22comet%22%2C%22stremthru%22%5D%2C%22ScrapersConfigured%22%3Atrue%2C%22minSize%22%3A0%2C%22maxSize%22%3A200%2C%22ShowCatalog%22%3Atrue%2C%22ProxyApplyAll%22%3Afalse%2C%22DebridProvider%22%3A%22httpstreaming%22%7D/manifest.json",
 		"https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIiwiaGluZGkiLCJ0YW1pbCIsInRlbHVndSIsImFyYWJpYyIsInBvcnR1Z3Vlc2UiXSwic291cmNlIjoidHJ1c3RlZCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
 		"https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6InVzZXJzIiwiYWlUcmFuc2xhdGVkIjp0cnVlLCJhdXRvQWRqdXN0bWVudCI6dHJ1ZX0=/manifest.json"
 	],
