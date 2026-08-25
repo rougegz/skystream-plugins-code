@@ -1,0 +1,22 @@
+{
+	"packageName": "dev.cookie.harustream",
+	"name": "HaruStream Sandbox",
+	"version": 1,
+	"baseUrl": "https://harustream.local",
+	"description": "Live sandbox for Zenda-Cross/vega-providers. Provider modules are fetched at runtime, so upstream fixes appear automatically. Toggle providers in settings.",
+	"authors": ["Cookie🍪"],
+	"languages": ["English", "Hindi", "Tamil", "Telugu", "Spanish", "Portuguese"],
+	"categories": ["Movies", "Series"],
+	"settings": [
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Pass through provider subtitles when available",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [],
+	"metadataAddons": []
+}

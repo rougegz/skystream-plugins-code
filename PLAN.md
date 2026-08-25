@@ -64,3 +64,18 @@
 - Style: var/function, no optional chaining/spread (embedded JS engine).
 - No new dependencies; host contract (http_get, manifest, _dartAsyncCall)
   untouched.
+
+# HaruStream sandbox plugin (harustream-stremio) — BETA, continuation notes
+- Live-loads Zenda-Cross/vega-providers modules at runtime (auto-upstream fixes).
+- Verified: index(40 urls/50 manifest), 26 enabled providers, module exec,
+  search returns real results, getHome renders sections, load() resolves meta.
+- Next iterations:
+  1. Some providers return posts w/o links -> extend mini-cheerio (data attrs,
+     sibling combinators) per failing provider; test each via
+     `skystream test -p harustream-stremio -f search -q <term>`.
+  2. autoEmbed/vega stream.js may need debrid/config -> check empty-streams
+     providers individually (getStream args: {link,type}).
+  3. Settings: per-provider toggles read pref key `p_<normalized value>`
+     (default ON). Generate visible toggles in plugin.json from urls.json if
+     UI list desired.
+  4. Debug handle: globalThis.__haru (loadIndex/callProvider/etc).
