@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.desiflix",
 	"name": "DesiFlix",
-	"version": 1,
+	"version": 2,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Indian serials, movies and web series via DesiTVHub.",
 	"authors": [

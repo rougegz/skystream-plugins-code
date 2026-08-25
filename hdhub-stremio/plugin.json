@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.hdhub",
 	"name": "HdHub",
-	"version": 1,
+	"version": 2,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Torrent streams in up to 4K from HdHub.",
 	"authors": [

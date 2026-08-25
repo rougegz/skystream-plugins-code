@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.sportsstreams",
 	"name": "Sports Streams",
-	"version": 1,
+	"version": 2,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Live and upcoming sports: football, cricket, UFC, tennis and more.",
 	"authors": [

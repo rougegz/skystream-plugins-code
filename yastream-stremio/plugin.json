@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.yastream",
 	"name": "Yastream 🇰🇷🇯🇵🇨🇳🇹🇭",
-	"version": 1,
+	"version": 2,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Asian dramas, movies and series with multi-provider streams.",
 	"authors": [

@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.dramayo",
 	"name": "Dramayo 🇰🇷🇯🇵🇨🇳🇹🇭",
-	"version": 1,
+	"version": 2,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Asian dramas and movies with direct stream links.",
 	"authors": [
