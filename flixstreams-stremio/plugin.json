@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.flixstreams",
 	"name": "Flix Streams Free",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "HDHub, HDHub4u, Dailymotion plus live TV and sports events.",
 	"authors": [

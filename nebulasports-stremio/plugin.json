@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.nebulasports",
 	"name": "Nebula Sports",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Live sports streams in up to 4K, World Cup included.",
 	"authors": [

@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.novelaspt",
 	"name": "Filmes & Novelas PT 🇵🇹",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Filmes, séries e novelas portuguesas.",
 	"authors": [

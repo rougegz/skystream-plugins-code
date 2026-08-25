@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.k20",
 	"name": "K20 Phim Tổng Hợp 🇻🇳",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Phim Vietsub và thuyết minh, thể thao trực tiếp.",
 	"authors": [

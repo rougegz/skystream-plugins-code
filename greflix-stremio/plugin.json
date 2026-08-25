@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.greflix",
 	"name": "GreFlix 🇬🇷",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Greek TV series, movies and cinema classics.",
 	"authors": [

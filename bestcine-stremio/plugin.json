@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.bestcine",
 	"name": "BestCine 🇧🇷",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Filmes e séries PT-BR em HD/4K com canais ao vivo.",
 	"authors": [

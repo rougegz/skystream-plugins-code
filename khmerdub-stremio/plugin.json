@@ -1,7 +1,7 @@
 {
 	"packageName": "dev.cookie.khmerdub",
 	"name": "KhmerDub 🇰🇭",
-	"version": 2,
+	"version": 1,
 	"baseUrl": "https://stremio-hub.local",
 	"description": "Asian dramas dubbed in Khmer.",
 	"authors": [
