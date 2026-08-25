@@ -1,0 +1,39 @@
+{
+	"packageName": "dev.cookie.vega.tokyoinsider",
+	"name": "TokyoInsider",
+	"version": 1,
+	"baseUrl": "https://www.tokyoinsider.com",
+	"description": "TokyoInsider via vega-providers (live modules)",
+	"providers": [
+		{
+			"id": "tokyoInsider",
+			"moduleDir": "tokyoInsider",
+			"name": "tokyoinsider",
+			"baseUrl": "https://www.tokyoinsider.com"
+		}
+	],
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Provider subtitles passthrough",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}

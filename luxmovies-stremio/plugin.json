@@ -1,0 +1,39 @@
+{
+	"packageName": "dev.cookie.vega.luxmovies",
+	"name": "RogMovies",
+	"version": 1,
+	"baseUrl": "https://new2.rogmovies.click",
+	"description": "RogMovies via vega-providers (live modules)",
+	"providers": [
+		{
+			"id": "luxMovies",
+			"moduleDir": "luxMovies",
+			"name": "luxmovies",
+			"baseUrl": "https://new2.rogmovies.click"
+		}
+	],
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Provider subtitles passthrough",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}

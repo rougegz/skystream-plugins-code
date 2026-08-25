@@ -1,0 +1,39 @@
+{
+	"packageName": "dev.cookie.vega.protonmovies",
+	"name": "ProtonMovies",
+	"version": 1,
+	"baseUrl": "https://m.protonmovies.space",
+	"description": "ProtonMovies via vega-providers (live modules)",
+	"providers": [
+		{
+			"id": "protonMovies",
+			"moduleDir": "protonMovies",
+			"name": "protonMovies",
+			"baseUrl": "https://m.protonmovies.space"
+		}
+	],
+	"authors": [
+		"Cookie🍪"
+	],
+	"languages": [
+		"English"
+	],
+	"categories": [
+		"Movies",
+		"Series"
+	],
+	"settings": [
+		{
+			"key": "external_subs",
+			"title": "Enable External Subs",
+			"description": "Provider subtitles passthrough",
+			"type": "toggle",
+			"defaultValue": "true",
+			"reloadOnChange": true
+		}
+	],
+	"addons": [],
+	"metadataAddons": [
+		"https://v3-cinemeta.strem.io/manifest.json"
+	]
+}
