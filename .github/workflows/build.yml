@@ -2,6 +2,12 @@ name: Build & Deploy
 
 # Source: rougegz/skystream-plugins-code -> Dist: rougegz/SkystreamPlugins
 # Users install via: https://raw.githubusercontent.com/rougegz/SkystreamPlugins/main/repo.json
+#
+# Full sync semantics:
+#   - new/changed plugins  -> written to dist/
+#   - deleted/renamed plugins -> their .sky REMOVED from dist/
+#   - identical bundles    -> left untouched (zips embed timestamps, so this
+#                             prevents churn commits on comment-only pushes)
 
 on:
   push:
@@ -30,25 +36,22 @@ jobs:
       - name: Build Plugins
         run: |
           skystream deploy -u "https://raw.githubusercontent.com/rougegz/SkystreamPlugins/main"
-          echo "## Deployed plugins" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Built plugins" >> "$GITHUB_STEP_SUMMARY"
           ls dist/*.sky | xargs -n1 basename >> "$GITHUB_STEP_SUMMARY"
 
-      # .sky zips embed build timestamps, so a full rebuild changes EVERY file's
-      # bytes even when plugin code is identical. Compare zip CONTENTS against
-      # the currently deployed dist and keep the old bytes when identical, so
-      # only genuinely-changed plugins are committed.
-      - name: Checkout current dist (change detection)
+      - name: Checkout dist repo
         uses: actions/checkout@v4
         with:
           repository: rougegz/SkystreamPlugins
           ref: main
-          path: current-dist
+          path: deploy-repo
           token: ${{ secrets.REPO_PUSH_TOKEN }}
 
-      - name: Keep unchanged .sky files from previous deploy
+      - name: Sync dist (add/update/delete)
         run: |
           python3 - <<'EOF'
           import zipfile, pathlib, hashlib, shutil
+
           def inner_hash(p):
               p = pathlib.Path(p)
               if not p.exists():
@@ -62,31 +65,45 @@ jobs:
                   return h.hexdigest()
               except Exception:
                   return None
-          kept = changed = 0
-          for new in sorted(pathlib.Path("dist").glob("*.sky")):
-              old = pathlib.Path("current-dist/dist") / new.name
+
+          src = pathlib.Path("dist")
+          dst = pathlib.Path("deploy-repo/dist")
+          dst.mkdir(parents=True, exist_ok=True)
+
+          kept = changed = removed = 0
+          built = set()
+          for new in sorted(src.glob("*.sky")):
+              built.add(new.name)
+              old = dst / new.name
               if inner_hash(new) == inner_hash(old):
-                  shutil.copyfile(old, new)
                   kept += 1
               else:
+                  shutil.copyfile(new, old)
                   changed += 1
-          print(f"unchanged: {kept}, changed: {changed}")
+          for old in sorted(dst.glob("*.sky")):
+              if old.name not in built:
+                  old.unlink()
+                  removed += 1
+
+          # repo index files always reflect the latest build
+          for f in ("repo.json",):
+              if (src.parent / f).exists() or pathlib.Path(f).exists():
+                  shutil.copyfile(f, f"deploy-repo/{f}")
+          if (src / "plugins.json").exists():
+              shutil.copyfile(src / "plugins.json", dst / "plugins.json")
+
+          print(f"unchanged: {kept}, updated: {changed}, removed: {removed}")
           EOF
 
-      - name: Prepare Deploy Directory
+      - name: Commit & Push
         run: |
-          mkdir -p deploy
-          cp -r dist repo.json deploy/
-          cp README.md deploy/README.md 2>/dev/null || true
-
-      - name: Push .sky to SkystreamPlugins (main branch)
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          personal_token: ${{ secrets.REPO_PUSH_TOKEN }}
-          external_repository: rougegz/SkystreamPlugins
-          publish_branch: main
-          publish_dir: ./deploy
-          force_orphan: false
-          user_name: "rougegz"
-          user_email: "rougegz@users.noreply.github.com"
-          commit_message: "Deploy from ${{ github.sha }} [skip ci]"
+          cd deploy-repo
+          git config user.name "rougegz"
+          git config user.email "rougegz@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Deploy from ${GITHUB_SHA} [skip ci]"
+            git push origin main
+          fi
