@@ -1,96 +1,92 @@
-# Plan: Speed up stremio/plugin.js HTTP fan-out (parallel, bounded, reliable)
+# Plan: Dailymotion plugin v2 — all qualities, subs, precise search, rich home
 
-> STATUS: COMPLETE — all milestones verified. Harness: 26/26 PASS
-> (`node /tmp/opencode/stremio-hub-test/harness.mjs`).
+Repo: /root/skystream-plugins-code (branch main). Plugin:
+`dailymotion/plugin.js` + `plugin.json`. Test harness: `skystream-cli`
+(`npm i -g skystream-cli`), run from repo root with `-p dailymotion`.
 
-## Bottleneck audit (found by reading stremio/plugin.js)
+## Verified facts (live API probes, 2026-08-26)
 
-1. **search(): fake concurrency limit (critical)** — tasks are created as
-   `p: fetchJson(...)` which STARTS the request immediately; `pLimit(12)` only
-   wraps already-running promises, so it gates nothing. Up to ~300 requests fire
-   at once. Filter-batch requests all start even when never awaited (native
-   hits >= 20) — pure waste.
-2. **load(): serial meta fallback chain (critical)** — primary meta → blind
-   600ms delay + retry → sibling addons fetched ONE BY ONE → cinemeta bases and
-   types nested ONE BY ONE. Worst case 10+ sequential round trips.
-3. **getHome(): unbounded fan-out** — up to MAX_CATALOGS_PER_ADDON(30) x ~30
-   addons = ~900 simultaneous catalog GETs.
-4. **fetchJson(): retry wastes budget** — full second timeout after fixed 400ms;
-   getAddons worst case ~62s+, nearly all of GUARD_BUDGET_MS.
-5. **getAddons() all-failed retry refetches URLs that already succeeded**
-   (second pass ignores cache).
-6. **No single-flight dedupe** — concurrent entry calls re-fetch identical URLs.
-7. **pLimit() leaks a slot if fn rejects** (decrement only on fulfill).
-8. **No negative cache** — a dead addon re-stalls every screen for its full
-   timeout.
+- Player metadata:
+  `https://www.dailymotion.com/player/metadata/video/<id>?embedder=https://www.dailymotion.com/us`
+  - `qualities` = map; usually only
+    `auto: [{type: application/x-mpegURL, url: master.m3u8}]`
+  - Master M3U8 contains `#EXT-X-STREAM-INF` variants with
+    `NAME="1080"/"720"/"480"/"380"...` → per-quality streams
+  - `subtitles.data` is an OBJECT MAP
+    `{ "en-auto": {label, urls:["....srt"]}, ... }` (old code assumed array →
+    subs never showed)
+- API `api.dailymotion.com`: videos search/list OK; `/user/<id>/videos` MUST use
+  `sort=recent` (`trending` returns empty list)
+- Channels taxonomy: shortfilms=Movies, tv=TV, fun=Comedy, videogames=Gaming,
+  music, news, sport, kids...
+- Verified curated channels (sort=recent): Rajshri xldsnb, Mundo Drama x1tk6u3,
+  Pakistani Drama x2w7377, PJ KDrama x2mvsoe, TUS Series Turcas x2fxr8x
+- CLI StreamResult keeps only url/source/headers/subtitles → quality label must
+  ride in `source`
 
-## Milestone 1: HTTP core (in plugin.js, keep ES5-ish style + async/await)
+## Milestone 1: Core engine rewrite (http layer + helpers)
 
-- [x] `pool(items, n, fn)`: bounded-concurrency parallel map, order-preserving,
-      slot released on fulfill AND reject.
-- [x] Fix `pLimit` decrement-on-reject (keep for compat).
-- [x] `httpJson`: single-flight in-flight dedupe per URL (share one promise).
-- [x] `fetchJson(url, timeoutMs, retries)`: budget-split attempts (60% / 60% of
-      T) with tiny jittered backoff — total stays ~1.2T max.
-- [x] Negative-result micro-cache (CFG.NEG_TTL_MS = 30s).
-- Verify: node harness unit tests pass (see M3 commands).
+- [x] `httpGet(url, timeoutMs)` — race-timeout over http_get, JSON guard, status
+      check
+- [x] `fetchJson(url, timeoutMs, retries)` — exponential backoff 500ms→2s
+- [x] `parallelJson(list, deadlineMs)` — ONE native `http_parallel` call for N
+      requests, global deadline race, graceful per-item null on failure;
+      fallback to Promise.all(httpGet) when bridge missing
+- [x] guarded() wrappers with per-function budgets (keep existing pattern)
+- Verify: `node --check dailymotion/plugin.js` parses
 
-## Milestone 2: Entry points onto the new core
+## Milestone 2: loadStreams — ALL qualities + subs
 
-- [x] `getAddons`: pool(10); failed-only second pass; negative cache.
-- [x] `getHome`: build LAZY job list, cap CFG.MAX_HOME_JOBS=140, pool(12).
-- [x] `search`: lazy task factories; slice BEFORE starting; pool(12); filter
-      batch only started if needed.
-- [x] `load`: stage 1 = own-addon meta AND cinemeta (tt ids) in parallel; stage
-      2 = siblings via pool in parallel; remove blind delay(600).
-- [x] `loadStreams`: keep per-addon deadlines; explicit subJob await (drop
-      index-magic `idx === jobs.length - 1`).
-- Verify: node harness integration tests pass.
+- [x] Fetch metadata → auto/master URL + subtitles map
+- [x] Parse master M3U8: extract every `#EXT-X-STREAM-INF` variant (NAME attr or
+      RESOLUTION height fallback) → one StreamResult per quality, sorted desc
+      (1080p→144p)
+- [x] Merge explicit `meta.qualities` entries if present (mp4 preferred per
+      quality)
+- [x] Always include Auto (master HLS)
+- [x] Subtitles: iterate subtitles.data MAP → {url: urls[0], label, lang from
+      key}; attach to every stream
+- [x] Clean headers: UA + Referer only (drop junk headers)
+- Verify: `skystream test -p dailymotion -f loadStreams -q dm|xaz901m` → ≥3
+  quality streams + ≥1 sub
 
-## Milestone 3: Prove it
+## Milestone 3: search — no dedupe, multi-page, URL-precise
 
-- [x] Harness: /tmp/opencode/stremio-hub-test/harness.mjs stubs global
-      http_get/manifest/_dartAsyncCall with simulated latency; asserts
-      correctness + observed concurrency caps + wall-clock speedups vs old file
-      (kept at /tmp/opencode/stremio-hub-test/plugin.old.js).
-- Command: `node /tmp/opencode/stremio-hub-test/harness.mjs` Expected: all PASS
-  lines, 0 failures, search/home wall-clock clearly lower.
-- [x] ast-lens complexity sanity on modified file.
-- [x] Report diff summary; remind user to REVOKE the leaked GitHub token.
+- [x] Detect Dailymotion URLs/IDs in query (dailymotion.com/video/<id>,
+      dai.ly/<id>, /video/<id>-title-slug, bare x-id, dm|ref) → resolve EXACT
+      video via API as top result (+ same-channel extras), skip web search
+- [x] Normal query: pages 1–3 fetched in PARALLEL via parallelJson, concatenated
+      WITHOUT dedupe, cap 90
+- Verify: `skystream test -f search -q "k drama"` → ~90 items incl. same-title
+  uploads; `-q https://www.dailymotion.com/video/xaz901m` → exactly that video
+  first
 
-## Constraints
+## Milestone 4: getHome — richer categories + best channels
 
-- Public API unchanged: getHome/search/load/loadStreams/getSettings.
-- Style: var/function, no optional chaining/spread (embedded JS engine).
-- No new dependencies; host contract (http_get, manifest, _dartAsyncCall)
-  untouched.
+- [x] Rows via ONE http_parallel batch (~14 requests): Trending(hero), New
+      Releases, Movies(shortfilms ch), Full Hollywood Movies(search), Bollywood
+      Movies(search), TV Series(tv ch), K-Drama(PJ KDrama ch), Drama
+      Series(Mundo Drama ch), Pakistani Dramas(channel), Turkish Series(TUS ch),
+      ShortDrama(search), Anime(search), Music(ch), Trailers(search)
+- [x] Channel rows use sort=recent; category rows sort=trending; page param
+      support
+- Verify: `skystream test -f getHome` → ≥10 populated rows, fast (<15s)
 
-# HaruStream sandbox plugin (harustream-stremio) — BETA, continuation notes
-- Live-loads Zenda-Cross/vega-providers modules at runtime (auto-upstream fixes).
-- Verified: index(40 urls/50 manifest), 26 enabled providers, module exec,
-  search returns real results, getHome renders sections, load() resolves meta.
-- Next iterations:
-  1. Some providers return posts w/o links -> extend mini-cheerio (data attrs,
-     sibling combinators) per failing provider; test each via
-     `skystream test -p harustream-stremio -f search -q <term>`.
-  2. autoEmbed/vega stream.js may need debrid/config -> check empty-streams
-     providers individually (getStream args: {link,type}).
-  3. Settings: per-provider toggles read pref key `p_<normalized value>`
-     (default ON). Generate visible toggles in plugin.json from urls.json if
-     UI list desired.
-  4. Debug handle: globalThis.__haru (loadIndex/callProvider/etc).
+## Milestone 5: load() polish + manifest bump
 
-# VEGAPP FIX (next session priority) — vega plugins fail in-app entirely
-Symptoms: meta/categories/streams ALL fail in SkyStream app (CLI worked partially).
-Repos to analyze: vega-org/vega-app (OFFICIAL app = ground truth for module contract!),
-akashdh11/skystream, Zenda-Cross/vega-providers, Hindmovie vegamovies plugin.
-Plan:
-1. Read vega-org/vega-app provider runtime FIRST - it defines the REAL
-   providerContext/module API my shims must match exactly (axios shape,
-   cheerio subset, getBaseUrl caching via providerGlobal, signal handling).
-2. Compare against harustream-vegapp/plugin.js shims; fix gaps (likely:
-   axios response shape .data vs text, cheerio .load chaining, headers case).
-3. Debug per-provider via skystream CLI + __haru handle; log module errors
-   instead of swallowing (add err capture to pool/callProvider).
-4. Regenerate 30 folders from fixed engine; CLI-test each; push.
-5. Subagents returned empty all session - do analysis manually if repeats.
+- [x] Parallel related+owner fetch, keep up-next dedupe there (it's a playlist,
+      not search)
+- [x] duration(minutes)/year fields, description, bannerUrl
+- [x] plugin.json version 2, updated description
+- Verify: `skystream test -f load -q dm|xaz901m` → details + episodes
+
+## Milestone 6: Full CLI verification + commit
+
+- [x] All four functions green via skystream CLI
+- [x] Edge cases: bad id, dai.ly link, video without subs, single-quality video
+- [x] git commit (local); push only if user confirms (token provided in chat —
+      must be rotated!)
+
+## Rules honored
+
+- No comments in code. No dedupe in search. Quality labels in source strings.

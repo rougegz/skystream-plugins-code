@@ -1,9 +1,9 @@
 {
 	"packageName": "dev.cookie.dailymotion",
 	"name": "Dailymotion",
-	"version": 1,
+	"version": 2,
 	"baseUrl": "https://www.dailymotion.com",
-	"description": "Dailymotion videos: trending, channels, search and up-next from the same channel.",
+	"description": "Dailymotion: movies, series, K-drama, short drama, anime and more. Every quality up to 1080p, subtitles, precise link search and fast parallel loading.",
 	"authors": ["Cookie🍪"],
 	"languages": ["English", "Multilingual"],
 	"categories": ["Movies", "Series"]
