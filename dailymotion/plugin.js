@@ -28,6 +28,8 @@
   var STREAM_HEADERS = {
     "User-Agent": UA,
     Referer: "https://www.dailymotion.com/",
+    Origin: "https://www.dailymotion.com",
+    Accept: "*/*",
   };
   var HOME_ROWS = [
     { name: "Trending", kind: "videos", qs: "sort=trending" },
@@ -762,11 +764,12 @@
         : "Dailymotion";
     var dur = fmtDur(meta.duration);
     var masterUrl = firstMasterUrl(meta);
+    var cookie = cookieFrom(metaResp);
     var variants = [];
     if (masterUrl) {
-      var cookie = cookieFrom(metaResp);
-      var hdrs = STREAM_HEADERS;
-      if (cookie) hdrs = Object.assign({}, STREAM_HEADERS, { Cookie: cookie });
+      var hdrs = cookie
+        ? Object.assign({}, STREAM_HEADERS, { Cookie: cookie })
+        : STREAM_HEADERS;
       var resp = await rawGet(masterUrl, hdrs, CFG.TIMEOUT_MS);
       var text = resp ? pickBody(resp) : null;
       if ((!text || !/#EXT-X-STREAM-INF/i.test(text)) && cookie) {
@@ -781,16 +784,36 @@
       seenHeights[v.height] = true;
     });
     var explicit = explicitQualities(meta, seenHeights);
+    var streamHdrs = cookie
+      ? Object.assign({}, STREAM_HEADERS, { Cookie: cookie })
+      : STREAM_HEADERS;
     var streams = [];
-    streams.push(
-      clean({
-        url: masterUrl || (explicit[0] && explicit[0].url) || "",
-        source: "Dailymotion • Auto" + (dur ? " • " + dur : "") + " • " + owner,
-        quality: "Auto",
-        headers: STREAM_HEADERS,
-        subtitles: subs.length ? subs.slice() : undefined,
-      }),
-    );
+    var autoUrl = masterUrl || (explicit[0] && explicit[0].url) || "";
+    if (autoUrl) {
+      streams.push(
+        clean({
+          url: autoUrl,
+          source:
+            "Dailymotion • Auto" + (dur ? " • " + dur : "") + " • " + owner,
+          quality: "Auto",
+          headers: streamHdrs,
+          subtitles: subs.length ? subs.slice() : undefined,
+        }),
+      );
+      if (typeof g.MAGIC_PROXY_v1 !== "undefined" && isHttpStr(autoUrl)) {
+        try {
+          streams.push(
+            clean({
+              url: g.MAGIC_PROXY_v1 + btoa(autoUrl),
+              source: "Dailymotion • Auto • Proxy • " + owner,
+              quality: "Auto",
+              headers: streamHdrs,
+              subtitles: subs.length ? subs.slice() : undefined,
+            }),
+          );
+        } catch (e) {}
+      }
+    }
     var qualityStreams = variants.length ? variants : explicit;
     for (var i = 0; i < qualityStreams.length; i++) {
       var qs = qualityStreams[i];
@@ -800,7 +823,7 @@
           url: qs.url,
           source: "Dailymotion • " + qs.label + " • " + owner,
           quality: qs.label,
-          headers: STREAM_HEADERS,
+          headers: streamHdrs,
           subtitles: subs.length ? subs.slice() : undefined,
         }),
       );
