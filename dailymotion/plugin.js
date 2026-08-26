@@ -815,6 +815,24 @@
       }
     }
     var qualityStreams = variants.length ? variants : explicit;
+    if (
+      !qualityStreams.length &&
+      masterUrl &&
+      meta.stream_formats &&
+      typeof meta.stream_formats === "object"
+    ) {
+      var fmtKeys = Object.keys(meta.stream_formats);
+      fmtKeys.sort(function (a, b) {
+        return safeInt(b, 0) - safeInt(a, 0);
+      });
+      for (var fk = 0; fk < fmtKeys.length; fk++) {
+        var k = fmtKeys[fk];
+        if (!/^\d{3,4}$/.test(k)) continue;
+        var h = safeInt(k, 0);
+        if (seenHeights[h]) continue;
+        qualityStreams.push({ label: h + "p", height: h, url: masterUrl });
+      }
+    }
     for (var i = 0; i < qualityStreams.length; i++) {
       var qs = qualityStreams[i];
       if (!qs || !isHttpStr(qs.url)) continue;
