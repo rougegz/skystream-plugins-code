@@ -33,7 +33,8 @@
   };
   var HOME_ROWS = [
     { name: "Trending", kind: "videos", qs: "sort=trending" },
-    { name: "New Releases", kind: "videos", qs: "sort=recent" },
+    { name: "🔥 Viral Now", kind: "videos", qs: "sort=visited" },
+    { name: "📺 Live", kind: "videos", qs: "search=live news&sort=trending" },
     {
       name: "Movies",
       kind: "videos",
@@ -616,7 +617,11 @@
   }
   async function load(url, cb) {
     var ref = parseId(url);
-    if (!ref) return fallbackDetail(url);
+    if (!ref) {
+      var ext = extractVideoId(url);
+      if (ext) ref = { id: ext };
+      else return fallbackDetail(url);
+    }
     var v = await fetchJson(
       API +
         "/video/" +
@@ -626,7 +631,25 @@
       CFG.TIMEOUT_MS,
       CFG.RETRIES,
     );
-    if (!v || !v.id) return fallbackDetail(url);
+    if (!v || !v.id) {
+      var mResp = await rawGet(metaUrl(ref.id), PAGE_HEADERS, CFG.TIMEOUT_MS);
+      var m = safeJson(pickBody(mResp), null);
+      if (m && m.title && m.id) {
+        v = {
+          id: m.id,
+          title: m.title,
+          duration: m.duration,
+          thumbnail_480_url:
+            (m.thumbnails && m.thumbnails["480"]) || m.thumbnail_480_url || "",
+          thumbnail_360_url:
+            (m.thumbnails && m.thumbnails["360"]) || m.thumbnail_360_url || "",
+          views_total: m.views_total || 0,
+          created_time: m.created_time || 0,
+          owner: m.owner || { screenname: "Dailymotion", id: "" },
+          description: m.description || "",
+        };
+      } else return fallbackDetail(url);
+    }
     var descParts = [];
     var dur = fmtDur(v.duration);
     if (dur) descParts.push("Duration: " + dur);
@@ -767,10 +790,18 @@
     var cookie = cookieFrom(metaResp);
     var variants = [];
     if (masterUrl) {
-      var hdrs = cookie
-        ? Object.assign({}, STREAM_HEADERS, { Cookie: cookie })
-        : STREAM_HEADERS;
-      var resp = await rawGet(masterUrl, hdrs, CFG.TIMEOUT_MS);
+      var hlsHdrs = {
+        "User-Agent": UA,
+        Referer: "https://www.dailymotion.com/",
+        Origin: "https://www.dailymotion.com",
+        Accept: "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site",
+      };
+      if (cookie) hlsHdrs.Cookie = cookie;
+      var resp = await rawGet(masterUrl, hlsHdrs, CFG.TIMEOUT_MS);
       var text = resp ? pickBody(resp) : null;
       if ((!text || !/#EXT-X-STREAM-INF/i.test(text)) && cookie) {
         resp = await rawGet(masterUrl, STREAM_HEADERS, CFG.TIMEOUT_MS);
@@ -845,11 +876,7 @@
           subtitles: subs.length ? subs.slice() : undefined,
         }),
       );
-      if (
-        typeof g.MAGIC_PROXY_v1 !== "undefined" &&
-        isHttpStr(qs.url) &&
-        variants.length
-      ) {
+      if (typeof g.MAGIC_PROXY_v1 !== "undefined" && isHttpStr(qs.url)) {
         try {
           streams.push(
             clean({
