@@ -845,6 +845,23 @@
           subtitles: subs.length ? subs.slice() : undefined,
         }),
       );
+      if (
+        typeof g.MAGIC_PROXY_v1 !== "undefined" &&
+        isHttpStr(qs.url) &&
+        variants.length
+      ) {
+        try {
+          streams.push(
+            clean({
+              url: g.MAGIC_PROXY_v1 + btoa(qs.url),
+              source: "Dailymotion • " + qs.label + " • Proxy • " + owner,
+              quality: qs.label,
+              headers: streamHdrs,
+              subtitles: subs.length ? subs.slice() : undefined,
+            }),
+          );
+        } catch (e) {}
+      }
     }
     console.log(
       "[Dailymotion] " +
