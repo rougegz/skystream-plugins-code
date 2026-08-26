@@ -33,7 +33,6 @@
   };
   var HOME_ROWS = [
     { name: "Trending", kind: "videos", qs: "sort=trending" },
-    { name: "🔥 Viral Now", kind: "videos", qs: "sort=visited" },
     { name: "📺 Live", kind: "videos", qs: "search=live news&sort=trending" },
     {
       name: "Movies",
@@ -821,16 +820,6 @@
     var streams = [];
     var autoUrl = masterUrl || (explicit[0] && explicit[0].url) || "";
     if (autoUrl) {
-      streams.push(
-        clean({
-          url: autoUrl,
-          source:
-            "Dailymotion • Auto" + (dur ? " • " + dur : "") + " • " + owner,
-          quality: "Auto",
-          headers: streamHdrs,
-          subtitles: subs.length ? subs.slice() : undefined,
-        }),
-      );
       if (typeof g.MAGIC_PROXY_v1 !== "undefined" && isHttpStr(autoUrl)) {
         try {
           streams.push(
@@ -844,6 +833,16 @@
           );
         } catch (e) {}
       }
+      streams.push(
+        clean({
+          url: autoUrl,
+          source:
+            "Dailymotion • Auto" + (dur ? " • " + dur : "") + " • " + owner,
+          quality: "Auto",
+          headers: streamHdrs,
+          subtitles: subs.length ? subs.slice() : undefined,
+        }),
+      );
     }
     var qualityStreams = variants.length ? variants : explicit;
     if (
@@ -867,15 +866,6 @@
     for (var i = 0; i < qualityStreams.length; i++) {
       var qs = qualityStreams[i];
       if (!qs || !isHttpStr(qs.url)) continue;
-      streams.push(
-        clean({
-          url: qs.url,
-          source: "Dailymotion • " + qs.label + " • " + owner,
-          quality: qs.label,
-          headers: streamHdrs,
-          subtitles: subs.length ? subs.slice() : undefined,
-        }),
-      );
       if (typeof g.MAGIC_PROXY_v1 !== "undefined" && isHttpStr(qs.url)) {
         try {
           streams.push(
@@ -889,6 +879,15 @@
           );
         } catch (e) {}
       }
+      streams.push(
+        clean({
+          url: qs.url,
+          source: "Dailymotion • " + qs.label + " • " + owner,
+          quality: qs.label,
+          headers: streamHdrs,
+          subtitles: subs.length ? subs.slice() : undefined,
+        }),
+      );
     }
     console.log(
       "[Dailymotion] " +
