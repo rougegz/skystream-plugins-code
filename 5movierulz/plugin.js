@@ -1,80 +1,174 @@
-/* ============================================================================
- *
- *  5MovieRulz — SkyStream Gen 2 Plugin
- *  ================================
- *  Source site : https://www.5movierulz.ventures  (ONE domain only,
- *                taken from plugin.json -> manifest.baseUrl, see BASE_URL)
- *  Content     : Telugu / Hindi / Tamil / Malayalam movies
- *  Streams     : DIRECT video files only — Streamlare, Uperbox, Easysyncr,
- *                Download, Streamwish, Filelions. No torrents, no magnets.
- *
- *  HOW THIS FILE IS ORGANISED (read top to bottom):
- *  --------------------------------------------------------------------------
- *    SECTION 1  —  SHARED HELPERS
- *                   Small generic tools every part of the plugin reuses:
- *                   base URL, request headers, URL cleaning, page fetching,
- *                   quality/size parsing, P.A.C.K.E.R. unpacking and the
- *                   token-chain walker used by the file hosts.
- *
- *    SECTION 2  —  HOSTER SCRAPERS  (the scraping layer)
- *                   One self-contained resolver per video file host. Each
- *                   resolver takes an embed/page URL and returns a list of
- *                   direct playable file URLs. Nothing in this section knows
- *                   anything about the SkyStream app — pure scraping:
- *                     2A. Streamlare   — direct <source> HLS (+ API fallback)
- *                     2B. Uperbox      — 3-hop download-token chain to file
- *                     2C. Easysyncr    — 3-hop download-token chain to file
- *                     2D. Download     — "Download" button (same chain type)
- *                     2E. Streamwish   — packed-player unpack + mirror rotation
- *                     2F. Filelions    — packed "var links" HLS (VidHide family)
- *
- *    SECTION 3  —  APP FUNCTIONS  (the SkyStream layer)
- *                   The four functions the SkyStream app itself calls. They
- *                   scrape the movie site (home grids, search, details) and
- *                   fan out to the SECTION 2 scrapers to resolve streams:
- *                     3A. getHome      — 4 categories x 3 pages of posters
- *                     3B. search       — movie search across 3 endpoints
- *                     3C. load         — movie details + hoster buttons
- *                     3D. loadStreams  — direct playable streams, best first
- *
- *  DATA FLOW:
- *    getHome/search  ->  movie page URL  ->  load()  ->  episode payload
- *    (hoster buttons)  ->  loadStreams()  ->  SECTION 2 resolvers in
- *    parallel  ->  sorted StreamResult list  ->  played by the app.
- *
- * ========================================================================== */
-
 (function () {
-  /* ========================================================================
-   *  SECTION 1 — SHARED HELPERS
-   *  ------------------------------------------------------------------------
-   *  Generic building blocks used by BOTH the scraper layer (Section 2)
-   *  and the app layer (Section 3). No site-specific logic lives here.
-   * ====================================================================== */
-
-  /* ------------------------------------------------------------------------
-   *  1A. Base URL — mentioned exactly ONCE in this whole file.
-   *  The value comes from plugin.json ("baseUrl"), injected by the app as
-   *  `manifest`. The hard-coded string is only a fallback in case the host
-   *  ever fails to inject the manifest. Every fetch below reuses BASE_URL.
-   * ---------------------------------------------------------------------- */
   var BASE_URL = "https://www.5movierulz.ventures";
   try {
     BASE_URL = String(manifest.baseUrl || BASE_URL).replace(/\/$/, "");
   } catch (e) {}
 
-  /* ------------------------------------------------------------------------
-   *  1B. Browser identity shared by every request the plugin makes.
-   * ---------------------------------------------------------------------- */
   var UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-  /* ------------------------------------------------------------------------
-   *  1C. Request headers builder.
-   *  Every HTTP call carries a desktop User-Agent, a Referer and a
-   *  keep-alive hint. `origin` is only attached when the caller passes one
-   *  (file hosts check Origin; the movie site does not need it).
-   * ---------------------------------------------------------------------- */
+  var HOME_CATS = [
+    {
+      name: "Latest Movies",
+      path: function (b, p) {
+        return b + "/movies" + (p === 1 ? "/" : "/page/" + p + "/");
+      },
+    },
+    {
+      name: "Telugu Movies 2026",
+      path: function (b, p) {
+        return (
+          b +
+          "/category/telugu-movies-2026" +
+          (p === 1 ? "" : "/page/" + p + "/")
+        );
+      },
+    },
+    {
+      name: "Telugu Dubbed",
+      path: function (b, p) {
+        return (
+          b + "/language/telugu-dubbed" + (p === 1 ? "" : "/page/" + p + "/")
+        );
+      },
+    },
+    {
+      name: "Bollywood Movies 2026",
+      path: function (b, p) {
+        return (
+          b +
+          "/category/bollywood-movies-2026" +
+          (p === 1 ? "" : "/page/" + p + "/")
+        );
+      },
+    },
+  ];
+
+  var ROUTES = [
+    { re: /streamlare|vcdnlare|slmaxed|vcdnx/, run: resolveStreamlare },
+    { re: /uperbox/, run: resolveUperbox },
+    { re: /download/, run: resolveDownload },
+    { re: /easysyncr|easysync/, run: resolveEasysyncr },
+    {
+      re: /streamwish|wish|hglink|hgcloud|streamhls|wishfast|multimovies|katomen|uqloads|playerwish|hlswish|swhoi|swdyu|kswplayer|nekowish|hanerix|audinifer|vibuxer|masukestin|hgplaycdn|hglamioz|niramirus|playnixes|medixiru|gradehgplus|stbhg|doodporn/,
+      run: resolveStreamwish,
+    },
+    {
+      re: /filelion|lions|vidhide|minochinos|callistanise|morencius|kinoger|earnvids|streamvid|smoothpre|movearnpre|videoland|dhtpre|peytonepre|moflix|dintezuvio|dinisglows|dingtezuni|taylorplayer|ryderjet|javplaya|javion|fdewsdc|techradar|lumiawatch|azipcdn|mivalyo|motvy55|egsyxutd|e4xb5c2xnz|gsfomqu|coolciima|anime7u|bingez|6sfkrspw4u|\/f\/|\/v\/|\/embed\//,
+      run: resolveFilelions,
+    },
+  ];
+
+  var PRIVATE_HOST =
+    /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.0\.0\.0|\[::1\]|fc00:|fe80:)/i;
+
+  var PACKER_RE =
+    /eval\(function\(p,a,c,k,e,d?\)[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)/g;
+
+  var PACKER_ALPHA =
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  var QUALITY_RANK = {
+    "2160p": 0,
+    "1080p": 1,
+    "720p": 2,
+    "480p": 3,
+    hd: 4,
+    auto: 5,
+  };
+
+  var LIONS_DEAD = [
+    "filelions.com",
+    "filelions.to",
+    "filelions.live",
+    "filelions.xyz",
+    "filelions.online",
+    "filelions.site",
+    "filelions.co",
+    "ajmidyadfihayh.sbs",
+    "alhayabambi.sbs",
+    "vidhideplus.com",
+    "vidhidepro.com",
+    "vidhidevip.com",
+    "vidhidepre.com",
+    "vidhidefun.com",
+    "vidhidefast.com",
+    "azipcdn.com",
+    "mlions.pro",
+    "alions.pro",
+    "dlions.pro",
+    "mivalyo.com",
+    "motvy55.store",
+    "lumiawatch.top",
+    "fviplions.com",
+    "egsyxutd.sbs",
+    "e4xb5c2xnz.sbs",
+    "taylorplayer.com",
+    "ryderjet.com",
+    "techradar.ink",
+    "anime7u.com",
+    "coolciima.online",
+    "gsfomqu.sbs",
+    "bingezove.com",
+    "katomen.online",
+    "6sfkrspw4u.sbs",
+    "dingtezuni.com",
+    "dinisglows.com",
+    "dintezuvio.com",
+    "vidhide.com",
+    "minochinos.com",
+  ];
+
+  var WISH_RULE_HOSTS = ["dhcplay.com", "hglink.to", "hgcloud.to"];
+
+  var WISH_RULE_MIRRORS = [
+    "hanerix.com",
+    "audinifer.com",
+    "vibuxer.com",
+    "masukestin.com",
+    "streamhls.to",
+    "wishfast.top",
+  ];
+
+  var WISH_DMCA_MIRRORS = [
+    "hgplaycdn.com",
+    "hglamioz.com",
+    "niramirus.com",
+    "playnixes.com",
+    "medixiru.com",
+    "streamwish.to",
+    "strwish.xyz",
+    "hlswish.com",
+    "kswplayer.info",
+    "nekowish.my.id",
+    "multimovies.cloud",
+    "katomen.store",
+    "gradehgplus.com",
+    "stbhg.click",
+    "sfastwish.com",
+    "playerwish.com",
+  ];
+
+  var UPER_TLDS = ["net", "io", "com", "cx"];
+
+  var STREAMLARE_RES = [
+    /<source[^>]+src="([^"]+)"/gi,
+    /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi,
+    /(https?:\/\/[^\s"'<>]+\.(m3u8|mp4)[^\s"'<>]*)/gi,
+  ];
+
+  var ASSET_EXT = /\.(png|jpe?g|gif|webp|svg|css|js|vtt|srt)(\?|#|$)/i;
+  var LIONS_LINKS_RE = /var\s+links\s*=\s*(\{[^}]+\})/g;
+  var LIONS_SRC_RE = /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi;
+  var LIONS_HLS_ORDER = ["hls4", "hls3", "hls2"];
+  var WISH_SRC_RE =
+    /sources\s*:\s*\[\s*\{\s*file\s*:\s*["'](https?:\/\/[^"']+)["']/gi;
+  var WISH_HLS_RE = /"hls[24]"\s*:\s*"((?:https?:)?\/\/[^"]+)"/gi;
+  var WISH_FILE_RE =
+    /file\s*:\s*["'](https?:\/\/[^"']+\.(m3u8|mp4)[^"']*)["']/gi;
+  var DIRECT_FILE = /\.(mp4|mkv|avi|mov|m3u8)(\?|#|$)/i;
+  var DOWNLOAD_LINK = /href=["']([^"']+\.(mp4|mkv|avi|mov|m3u8)[^"']*)["']/i;
+
   function httpHeaders(referer, origin) {
     var h = {
       "User-Agent": UA,
@@ -89,14 +183,6 @@
     return httpHeaders(ref || BASE_URL + "/");
   }
 
-  /* ------------------------------------------------------------------------
-   *  1D. URL cleaning + resolving.
-   *  The movie site litters href attributes with raw \r / \n / spaces and
-   *  &amp; entities, so every URL is scrubbed before use. cleanUrl() strips
-   *  the junk; resolveUrl() additionally turns site-relative paths into
-   *  absolute URLs against a base; abs() does the same via the URL parser
-   *  for hoster pages.
-   * ---------------------------------------------------------------------- */
   function cleanUrl(u) {
     if (!u) return "";
     return String(u)
@@ -124,15 +210,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  1E. Safety gate for outgoing URLs.
-   *  Only public http(s) hosts are ever fetched. This blocks divisas such as
-   *  javascript:/data: links and private-network addresses even if a
-   *  compromised mirror ever serves one.
-   * ---------------------------------------------------------------------- */
-  var PRIVATE_HOST =
-    /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.0\.0\.0|\[::1\]|fc00:|fe80:)/i;
-
   function isPublicHttp(u) {
     try {
       var h = new URL(u).hostname.toLowerCase();
@@ -145,15 +222,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  1F. Page fetching.
-   *  fetchHtml() performs ONE GET and always resolves to a string ("" on
-   *  any failure — callers never have to try/catch it). fetchSeq() fetches
-   *  a list one after another. fetchAll() fetches a whole list in ONE
-   *  parallel batch via the host's http_parallel bridge (used for the 12
-   *  home-page requests and the 3 search endpoints), falling back to
-   *  sequential fetching where the bridge is unavailable.
-   * ---------------------------------------------------------------------- */
   async function fetchHtml(url, headers) {
     try {
       var res = await http_get(url, headers);
@@ -196,13 +264,6 @@
     return fetchSeq(urls, ref);
   }
 
-  /* ------------------------------------------------------------------------
-   *  1G. Quality + size parsing for stream labels.
-   *  parseQuality() reads an explicit resolution token out of a file name
-   *  ("...720p...", "...1080p...") and parseSize() reads a file size
-   *  ("700MB", "781.72 MB"). qualityRank() orders qualities best-first so
-   *  loadStreams() can sort the final list. pageTitle() grabs <title>.
-   * ---------------------------------------------------------------------- */
   function parseQuality(s) {
     var t = String(s || "").toLowerCase();
     if (/(4k|2160p|uhd)/.test(t)) return "2160p";
@@ -217,15 +278,6 @@
     return m ? m[1] + m[2].toUpperCase() : "";
   }
 
-  var QUALITY_RANK = {
-    "2160p": 0,
-    "1080p": 1,
-    "720p": 2,
-    "480p": 3,
-    hd: 4,
-    auto: 5,
-  };
-
   function qualityRank(q) {
     var r = QUALITY_RANK[String(q || "").toLowerCase()];
     return r === undefined ? 4 : r;
@@ -236,14 +288,6 @@
     return m ? m[1].replace(/\s+/g, " ").trim() : "";
   }
 
-  /* ------------------------------------------------------------------------
-   *  1H. Token-chain walker (Uperbox / Easysyncr / Download button).
-   *  These file hosts all work the same way:
-   *      landing page  ->  ".../download?token=A"  ->  "/dl?code=..&token=B"
-   *  and that final /dl URL *IS* the video file (it is returned, never
-   *  fetched here — fetching it would download the movie). Resolves fresh
-   *  on every call because the tokens are single-use and short-lived.
-   * ---------------------------------------------------------------------- */
   async function followTokenChain(pageUrl, referer) {
     var host = "";
     try {
@@ -273,20 +317,6 @@
     if (!isPublicHttp(result.fileUrl)) result.fileUrl = "";
     return result;
   }
-
-  /* ------------------------------------------------------------------------
-   *  1I. P.A.C.K.E.R. unpacker (Streamwish / Filelions player pages).
-   *  Those hosts hide their stream URLs inside eval-packed JavaScript.
-   *  unpackWithBridge() first asks the host app's native getAndUnpack
-   *  bridge, then falls back to the embedded pure-string unpacker below
-   *  (no eval is ever executed — packed text is only decoded, then the
-   *  URLs are pulled out with plain regexes in Section 2).
-   * ---------------------------------------------------------------------- */
-  var PACKER_RE =
-    /eval\(function\(p,a,c,k,e,d?\)[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)/g;
-
-  var PACKER_ALPHA =
-    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
   function packerBaseN(num, base) {
     if (num === 0) return "0";
@@ -343,36 +373,13 @@
     return code;
   }
 
-  /* ========================================================================
-   *  SECTION 2 — HOSTER SCRAPERS  (the scraping layer)
-   *  ------------------------------------------------------------------------
-   *  One resolver per video file host. CONTRACT (same for all six):
-   *    input   : embed/page URL + the movie-page URL (sent as Referer)
-   *    output  : Promise of [{ url, quality, size?, headers }]
-   *              url     = DIRECT playable file URL (http(s) only)
-   *              quality = "2160p" | "1080p" | "720p" | "480p" | "HD" | "Auto"
-   *              size    = e.g. "700MB" (only when the host shows one)
-   *              headers = Referer/Origin/UA the player must send
-   *    failure : ALWAYS resolves to [] — never throws, so one dead hoster
-   *              can never break the other five.
-   *  Scraper 2B/2C/2D additionally set singleUse: true — their tokens burn
-   *  on first use, so Section 3 sorts them after the re-playable HLS links
-   *  and the app's health probe never touches them.
-   * ====================================================================== */
-
-  /* ------------------------------------------------------------------------
-   *  SCRAPER 2A — Streamlare  (embed on ww*.vcdnlare.com)
-   *  The embed page contains a plain <video><source src="...m3u8"> tag, so
-   *  one GET is enough. If scraping finds nothing AND the URL belongs to
-   *  streamlare.com/slmaxed.com, it falls back to their JSON video API.
-   * ---------------------------------------------------------------------- */
-  var STREAMLARE_RES = [
-    /<source[^>]+src="([^"]+)"/gi,
-    /file\s*:\s*["'](https?:\/\/[^"']+)["']/gi,
-    /(https?:\/\/[^\s"'<>]+\.(m3u8|mp4)[^\s"'<>]*)/gi,
-  ];
-
-  var STREAMLARE_ASSETS = /\.(png|jpe?g|gif|webp|svg|css|js|vtt|srt)(\?|#|$)/i;
+  function collectStream(out, u, quality, headers) {
+    u = cleanUrl(u);
+    if (!isPublicHttp(u) || ASSET_EXT.test(u)) return false;
+    for (var i = 0; i < out.length; i++) if (out[i].url === u) return false;
+    out.push({ url: u, quality: quality, headers: headers });
+    return true;
+  }
 
   async function resolveStreamlare(embedUrl, referer) {
     var url = cleanUrl(embedUrl);
@@ -391,16 +398,12 @@
       STREAMLARE_RES[p].lastIndex = 0;
       var m;
       while ((m = STREAMLARE_RES[p].exec(html)) !== null) {
-        var u = cleanUrl(m[1]);
-        if (!isPublicHttp(u) || STREAMLARE_ASSETS.test(u)) continue;
-        var dup = false;
-        for (var i = 0; i < out.length; i++) if (out[i].url === u) dup = true;
-        if (dup) continue;
-        out.push({
-          url: u,
-          quality: /(\.m3u8|\/hls\/)/i.test(u) ? "Auto" : "HD",
-          headers: headers,
-        });
+        collectStream(
+          out,
+          m[1],
+          /(\.m3u8|\/hls\/)/i.test(m[1]) ? "Auto" : "HD",
+          headers,
+        );
       }
       if (out.length) return out;
     }
@@ -462,14 +465,6 @@
     return out;
   }
 
-  /* ------------------------------------------------------------------------
-   *  SCRAPER 2B — Uperbox  (page on www.uperbox.net/.io/.com/.cx)
-   *  Walks the site's 3-hop chain (landing -> download?token -> dl file)
-   *  via the shared Section 1H walker. Bare uperbox.TLD hosts are rewritten
-   *  to their www. form first. Reads quality + size out of the file name.
-   * ---------------------------------------------------------------------- */
-  var UPER_TLDS = ["net", "io", "com", "cx"];
-
   function normalizeUperbox(pageUrl) {
     try {
       var u = new URL(pageUrl);
@@ -502,12 +497,6 @@
     ];
   }
 
-  /* ------------------------------------------------------------------------
-   *  SCRAPER 2C — Easysyncr  (page on www.easysyncr.me / .io)
-   *  Same 3-hop chain shape as Uperbox, resolved by the shared Section 1H
-   *  walker. Prefers the measured size printed on the analyzing page
-   *  ("781.72 MB") over the size guessed from the file name.
-   * ---------------------------------------------------------------------- */
   async function resolveEasysyncr(embedUrl, referer) {
     var pageUrl = cleanUrl(embedUrl);
     if (!isPublicHttp(pageUrl)) return [];
@@ -525,15 +514,6 @@
     ];
   }
 
-  /* ------------------------------------------------------------------------
-   *  SCRAPER 2D — Download button  (points at an Easysyncr file page)
-   *  The "Download" button on the movie page leads to a file-host landing
-   *  page, so: already-a-file  ->  return as-is; token chain  ->  resolve
-   *  it like 2C; anything else  ->  first direct file link on the page.
-   * ---------------------------------------------------------------------- */
-  var DOWNLOAD_DIRECT = /\.(mp4|mkv|avi|mov|m3u8)(\?|#|$)/i;
-  var DOWNLOAD_LINK = /href=["']([^"']+\.(mp4|mkv|avi|mov|m3u8)[^"']*)["']/i;
-
   async function resolveDownload(embedUrl, referer) {
     var pageUrl = cleanUrl(embedUrl);
     if (!isPublicHttp(pageUrl)) return [];
@@ -544,7 +524,7 @@
       return [];
     }
     var pageHeaders = httpHeaders(referer || host + "/", host);
-    if (DOWNLOAD_DIRECT.test(pageUrl)) {
+    if (DIRECT_FILE.test(pageUrl)) {
       return [
         {
           url: pageUrl,
@@ -586,49 +566,6 @@
     ];
   }
 
-  /* ------------------------------------------------------------------------
-   *  SCRAPER 2E — Streamwish  (hglink.to / hgcloud.to / wish mirrors)
-   *  Ports the ResolveURL streamwish resolver: links routed through the
-   *  rule hosts are re-pointed at working wish mirrors (/e/<id>), each
-   *  candidate page is unpacked (Section 1I) and scanned for sources /
-   *  hls URLs. Best-effort and fail-soft — hglink sometimes serves a
-   *  browser-only challenge page, which is simply skipped.
-   * ---------------------------------------------------------------------- */
-  var WISH_RULE_HOSTS = ["dhcplay.com", "hglink.to", "hgcloud.to"];
-  var WISH_RULE_MIRRORS = [
-    "hanerix.com",
-    "audinifer.com",
-    "vibuxer.com",
-    "masukestin.com",
-    "streamhls.to",
-    "wishfast.top",
-  ];
-  var WISH_DMCA_MIRRORS = [
-    "hgplaycdn.com",
-    "hglamioz.com",
-    "niramirus.com",
-    "playnixes.com",
-    "medixiru.com",
-    "streamwish.to",
-    "strwish.xyz",
-    "hlswish.com",
-    "kswplayer.info",
-    "nekowish.my.id",
-    "multimovies.cloud",
-    "katomen.store",
-    "gradehgplus.com",
-    "stbhg.click",
-    "sfastwish.com",
-    "playerwish.com",
-  ];
-
-  var WISH_SRC_RE =
-    /sources\s*:\s*\[\s*\{\s*file\s*:\s*["'](https?:\/\/[^"']+)["']/gi;
-  var WISH_HLS_RE = /"hls[24]"\s*:\s*"((?:https?:)?\/\/[^"]+)"/gi;
-  var WISH_FILE_RE =
-    /file\s*:\s*["'](https?:\/\/[^"']+\.(m3u8|mp4)[^"']*)["']/gi;
-  var WISH_ASSETS = /\.(png|jpe?g|gif|webp|svg|css|js|vtt|srt)(\?|#|$)/i;
-
   async function resolveStreamwish(embedUrl, referer) {
     var pageUrl = cleanUrl(embedUrl);
     if (!isPublicHttp(pageUrl)) return [];
@@ -653,17 +590,6 @@
       }
     }
     var out = [];
-    var push = function (u, headers) {
-      u = cleanUrl(u);
-      if (u.indexOf("//") === 0) u = "https:" + u;
-      if (!isPublicHttp(u) || WISH_ASSETS.test(u)) return;
-      for (var k = 0; k < out.length; k++) if (out[k].url === u) return;
-      out.push({
-        url: u,
-        quality: /\.m3u8/i.test(u) ? "Auto" : "HD",
-        headers: headers,
-      });
-    };
     for (var c = 0; c < candidates.length; c++) {
       var origin = "";
       try {
@@ -681,64 +607,16 @@
       for (var r = 0; r < res.length; r++) {
         res[r].lastIndex = 0;
         var m;
-        while ((m = res[r].exec(code)) !== null) push(m[1], headers);
+        while ((m = res[r].exec(code)) !== null) {
+          var u = m[1];
+          if (u.indexOf("//") === 0) u = "https:" + u;
+          collectStream(out, u, /\.m3u8/i.test(u) ? "Auto" : "HD", headers);
+        }
       }
       if (out.length) return out;
     }
     return out;
   }
-
-  /* ------------------------------------------------------------------------
-   *  SCRAPER 2F — Filelions  (VidHide family: callistanise, minochinos…)
-   *  Ports the ResolveURL filelions resolver: dead VidHide domains are
-   *  remapped to callistanise.com, the page is unpacked (Section 1I) and
-   *  the "var links" map is read preferring hls4 > hls3 > hls2. Relative
-   *  /stream/... paths are absolutized and carry the embed page as Referer.
-   * ---------------------------------------------------------------------- */
-  var LIONS_DEAD = [
-    "filelions.com",
-    "filelions.to",
-    "filelions.live",
-    "filelions.xyz",
-    "filelions.online",
-    "filelions.site",
-    "filelions.co",
-    "ajmidyadfihayh.sbs",
-    "alhayabambi.sbs",
-    "vidhideplus.com",
-    "vidhidepro.com",
-    "vidhidevip.com",
-    "vidhidepre.com",
-    "vidhidefun.com",
-    "vidhidefast.com",
-    "azipcdn.com",
-    "mlions.pro",
-    "alions.pro",
-    "dlions.pro",
-    "mivalyo.com",
-    "motvy55.store",
-    "lumiawatch.top",
-    "fviplions.com",
-    "egsyxutd.sbs",
-    "e4xb5c2xnz.sbs",
-    "taylorplayer.com",
-    "ryderjet.com",
-    "techradar.ink",
-    "anime7u.com",
-    "coolciima.online",
-    "gsfomqu.sbs",
-    "bingezove.com",
-    "katomen.online",
-    "6sfkrspw4u.sbs",
-    "dingtezuni.com",
-    "dinisglows.com",
-    "dintezuvio.com",
-    "vidhide.com",
-    "minochinos.com",
-  ];
-  var LIONS_LINKS_RE = /var\s+links\s*=\s*(\{[^}]+\})/g;
-  var LIONS_SRC_RE = /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/gi;
-  var LIONS_HLS_ORDER = ["hls4", "hls3", "hls2"];
 
   async function resolveFilelions(embedUrl, referer) {
     var pageUrl = cleanUrl(embedUrl);
@@ -791,113 +669,6 @@
     return out;
   }
 
-  /* ========================================================================
-   *  SECTION 3 — APP FUNCTIONS  (the SkyStream layer)
-   *  ------------------------------------------------------------------------
-   *  These four functions are ALL the app ever calls. They scrape the movie
-   *  SITE (categories, search, details) and hand hoster URLs to the
-   *  Section 2 scrapers above. 3A/3B/3C fetch site pages; 3D fans out to
-   *  every hoster resolver in parallel and returns the sorted stream list.
-   * ====================================================================== */
-
-  /* ------------------------------------------------------------------------
-   *  3.0  Home-page category map.
-   *  THE 4 categories live here and ONLY here: the site path per category
-   *  plus the 3 pages merged into each one (user requirement: 3 pages of
-   *  posters inside a single category).
-   * ---------------------------------------------------------------------- */
-  var HOME_CATS = [
-    {
-      name: "Latest Movies",
-      path: function (b, p) {
-        return p === 1 ? b + "/" : b + "/page/" + p + "/";
-      },
-    },
-    {
-      name: "Telugu Movies 2026",
-      path: function (b, p) {
-        return (
-          b +
-          "/category/telugu-movies-2026" +
-          (p === 1 ? "" : "/page/" + p + "/")
-        );
-      },
-    },
-    {
-      name: "Telugu Dubbed",
-      path: function (b, p) {
-        return (
-          b + "/language/telugu-dubbed" + (p === 1 ? "" : "/page/" + p + "/")
-        );
-      },
-    },
-    {
-      name: "Bollywood Movies 2026",
-      path: function (b, p) {
-        return (
-          b +
-          "/category/bollywood-movies-2026" +
-          (p === 1 ? "" : "/page/" + p + "/")
-        );
-      },
-    },
-  ];
-
-  /* ------------------------------------------------------------------------
-   *  3.0  Hoster dispatch table.
-   *  Matches a hoster button (label + URL, lower-cased) to its Section 2
-   *  scraper, in priority order. Anything unrecognised falls through to a
-   *  generic unpack-then-source attempt. Every branch is fail-soft.
-   * ---------------------------------------------------------------------- */
-  var ROUTES = [
-    { re: /streamlare|vcdnlare|slmaxed|vcdnx/, run: resolveStreamlare },
-    { re: /uperbox/, run: resolveUperbox },
-    { re: /download/, run: resolveDownload },
-    { re: /easysyncr|easysync/, run: resolveEasysyncr },
-    {
-      re: /streamwish|wish|hglink|hgcloud|streamhls|wishfast|multimovies|katomen|uqloads|playerwish|hlswish|swhoi|swdyu|kswplayer|nekowish|hanerix|audinifer|vibuxer|masukestin|hgplaycdn|hglamioz|niramirus|playnixes|medixiru|gradehgplus|stbhg|doodporn/,
-      run: resolveStreamwish,
-    },
-    {
-      re: /filelion|lions|vidhide|minochinos|callistanise|morencius|kinoger|earnvids|streamvid|smoothpre|movearnpre|videoland|dhtpre|peytonepre|moflix|dintezuvio|dinisglows|dingtezuni|taylorplayer|ryderjet|javplaya|javion|fdewsdc|techradar|lumiawatch|azipcdn|mivalyo|motvy55|egsyxutd|e4xb5c2xnz|gsfomqu|coolciima|anime7u|bingez|6sfkrspw4u|\/f\/|\/v\/|\/embed\//,
-      run: resolveFilelions,
-    },
-  ];
-
-  function dispatchHoster(label, embedUrl, referer) {
-    var key = (
-      String(label || "") +
-      " " +
-      String(embedUrl || "")
-    ).toLowerCase();
-    for (var i = 0; i < ROUTES.length; i++) {
-      if (ROUTES[i].re.test(key)) {
-        try {
-          return ROUTES[i].run(embedUrl, referer);
-        } catch (e) {
-          return Promise.resolve([]);
-        }
-      }
-    }
-    try {
-      return resolveFilelions(embedUrl, referer).then(function (r) {
-        if (r && r.length) return r;
-        return resolveStreamlare(embedUrl, referer);
-      });
-    } catch (e) {
-      return Promise.resolve([]);
-    }
-  }
-
-  /* ------------------------------------------------------------------------
-   *  3.0  HTML parsing helpers for the movie site.
-   *  stripTags() decodes entities BEFORE stripping tags (twice) so encoded
-   *  markup can never survive as real tags. cleanTitle() trims the site's
-   *  "Watch Online Free" / quality suffixes. parseGrid() reads one "boxed
-   *  film" poster grid — a poster under /uploads/ is REQUIRED, which is
-   *  what keeps sidebar text links out of the results. metaBlock() reads
-   *  one "<p><strong>Label:</strong> …</p>" facts block (director, genres…).
-   * ---------------------------------------------------------------------- */
   function stripTags(s) {
     var t = String(s || "")
       .replace(/&amp;/g, "&")
@@ -1066,12 +837,31 @@
     return s;
   }
 
-  /* ------------------------------------------------------------------------
-   *  APP FUNCTION 3A — getHome(cb)
-   *  Builds the 4 home categories from HOME_CATS above. All 12 page URLs
-   *  (4 categories x 3 pages) are fetched in ONE parallel batch, then each
-   *  category's pages are merged, de-duplicated and capped at 60 posters.
-   * ---------------------------------------------------------------------- */
+  function dispatchHoster(label, embedUrl, referer) {
+    var key = (
+      String(label || "") +
+      " " +
+      String(embedUrl || "")
+    ).toLowerCase();
+    for (var i = 0; i < ROUTES.length; i++) {
+      if (ROUTES[i].re.test(key)) {
+        try {
+          return ROUTES[i].run(embedUrl, referer);
+        } catch (e) {
+          return Promise.resolve([]);
+        }
+      }
+    }
+    try {
+      return resolveFilelions(embedUrl, referer).then(function (r) {
+        if (r && r.length) return r;
+        return resolveStreamlare(embedUrl, referer);
+      });
+    } catch (e) {
+      return Promise.resolve([]);
+    }
+  }
+
   async function getHome(cb) {
     try {
       var b = BASE_URL;
@@ -1118,13 +908,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  APP FUNCTION 3B — search(query, cb)
-   *  Tries the 3 known search endpoints in ONE parallel batch and returns
-   *  the first batch with results. Blank queries short-circuit to [].
-   *  NOTE: the site currently WAF-blocks server-side search (HTTP 403),
-   *  so this fails soft to [] until their rules allow it again.
-   * ---------------------------------------------------------------------- */
   async function search(query, cb) {
     try {
       if (!query || !String(query).trim())
@@ -1151,14 +934,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  APP FUNCTION 3C — load(url, cb)
-   *  Opens a movie detail page and returns full metadata (title, poster,
-   *  description, year, genres, cast, director, language) plus ONE "Watch"
-   *  episode. That episode's URL is an encoded payload holding the 6
-   *  hoster buttons, which 3D resolves into playable streams. Torrents /
-   *  magnets on the page are deliberately ignored.
-   * ---------------------------------------------------------------------- */
   async function load(url, cb) {
     try {
       var b = BASE_URL;
@@ -1263,14 +1038,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  APP FUNCTION 3D — loadStreams(url, cb)
-   *  Decodes the episode payload from 3C (validating every field first),
-   *  resolves ALL hosters CONCURRENTLY through the dispatch table above,
-   *  then sorts best-first: re-playable links by quality, single-use file
-   *  tokens (2B/2C/2D) always last so the app's health probe never burns
-   *  them before the viewer taps. One hoster failing never affects others.
-   * ---------------------------------------------------------------------- */
   async function loadStreams(url, cb) {
     try {
       var entries = [];
@@ -1365,9 +1132,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  Plugin exports — the four Section 3 functions the app calls.
-   * ---------------------------------------------------------------------- */
   globalThis.getHome = getHome;
   globalThis.search = search;
   globalThis.load = load;
