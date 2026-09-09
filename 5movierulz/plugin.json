@@ -4,17 +4,7 @@
 	"version": 1,
 	"baseUrl": "https://www.5movierulz.ventures",
 	"domains": [
-		{ "name": "5movierulz.ventures", "url": "https://www.5movierulz.ventures" },
-		{ "name": "5movierulz.pictures", "url": "https://www.5movierulz.pictures" },
-		{
-			"name": "5movierulz.university",
-			"url": "https://www.5movierulz.university"
-		},
-		{ "name": "5movierulz.solar", "url": "https://www.5movierulz.solar" },
-		{ "name": "5movierulz.movies", "url": "https://www.5movierulz.movies" },
-		{ "name": "5movierulz.ibomma", "url": "https://www.5movierulz.ibomma" },
-		{ "name": "5movierulz.capetown", "url": "https://www.5movierulz.capetown" },
-		{ "name": "5movierulz.moviez", "url": "https://www.5movierulz.moviez" }
+		{ "name": "5movierulz.ventures", "url": "https://www.5movierulz.ventures" }
 	],
 	"description": "Latest Telugu, Tamil, Malayalam & Hindi movies. Direct streams (no torrents).",
 	"authors": ["Ventures"],
