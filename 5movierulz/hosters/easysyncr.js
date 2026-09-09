@@ -18,6 +18,7 @@ export async function resolveEasysyncr(embedUrl, referer) {
       url: hop.fileUrl,
       quality: parseQuality(hop.title) || "HD",
       size: measured ? measured[1] + "MB" : parseSize(hop.title),
+      singleUse: true,
       headers: reqHeaders(hop.dlPage, hop.host),
     },
   ];

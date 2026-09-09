@@ -558,6 +558,7 @@ import { resolveFilelions } from "./hosters/filelions.js";
               url: lk.url,
               quality: q,
               size: sz,
+              rank: qualityRank(q) + (lk.singleUse ? 10 : 0),
               source: streamSource(settled[i].label, q, sz),
               headers: lk.headers || stdHeaders(referer),
             });
@@ -565,7 +566,7 @@ import { resolveFilelions } from "./hosters/filelions.js";
         }
       }
       flat.sort(function (a, b) {
-        return qualityRank(a.quality) - qualityRank(b.quality);
+        return a.rank - b.rank;
       });
       var results = [];
       for (var k = 0; k < flat.length; k++) {

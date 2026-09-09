@@ -35,6 +35,7 @@ export async function resolveUperbox(embedUrl, referer) {
       url: hop.fileUrl,
       quality: parseQuality(hop.title) || "HD",
       size: parseSize(hop.title),
+      singleUse: true,
       headers: reqHeaders(hop.dlPage, hop.host),
     },
   ];
